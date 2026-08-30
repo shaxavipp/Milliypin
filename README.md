@@ -12,8 +12,8 @@ qo'yilgan. Kunduzgi mavzu — "saman va sopol" (Rishton kulolchiligi).
 | Qatlam | Yechim |
 |---|---|
 | Palitra | Tungi lojuvard osmon `#070C18`, gumbaz feruzasi `#2FA8C4`, zar `#D6A94A`, sopol `#C4664A` |
-| Tarixiy belgilar | Go'ri Amir gumbazi (balans kartasi va banner), madrasa ayvoni — takrorlanuvchi sivri yoylar galereyasi (banner poydevori), Registon peshtoqi (navigatsiya va bo'lim sarlavhasi), minora, suzani palagi |
-| Plita | Mahsulot rasmi (admin qo'yadi) yoki chizilgan ikonka; hudud yorlig'i (GLOBAL / SNG / AVTO / GIFTS), reyting va chegirma foizi |
+| Tarixiy belgilar | Go'ri Amir gumbazi (balans kartasi), Registon peshtoqi (navigatsiya va bo'lim sarlavhasi), minora, suzani palagi, plita ortidagi girih medalyoni |
+| Plita | Mahsulot rasmi (admin qo'yadi, kvadrat maydon) yoki naqsh ustidagi chizilgan ikonka va girih medalyoni (4:3); hudud yorlig'i (GLOBAL / SNG / AVTO / GIFTS) va chegirma foizi |
 | Bezak to'ri | Girih — sakkiz qirrali yulduz + burilgan kvadrat; koshin haoshiyasi (uchburchak-nuqta zanjirasi) sarlavha ostida |
 | Ikonkalar | **Emoji yo'q.** 45 dan ortiq ikonka bitta qo'lda chizilgan: 24×24 to'r, 1.6px chiziq (`public/icons.js`) |
 | Shrift | `Archivo` — interfeys; `IBM Plex Mono` + `tabular-nums` — barcha raqamlar |
@@ -28,14 +28,15 @@ turadi (Telegram Premium, Stars, sovg'alar, kanal xizmatlari).
 
 | Sahifa | Nimalar bor |
 |---|---|
-| **Bosh** | Salomlashuv, uch tugmali balans kartasi (to'ldirish / promokod / yordam), banner, ommabop xizmatlar to'ri, statistika, Top donaterlar, mijozlar bahosi kartasi |
-| **O'yinlar** | Qidiruv, guruh filtrlari, 3 ustunli katalog. Har plitada reyting va chegirma foizi; texnik ishdagi xizmat xiralashadi va sotib olinmaydi |
-| **To'ldirish** | Balans, to'lov usullari (UZCARD / HUMO), eng kam summa, "Qanday to'ldirish?" va texnik yordam havolalari |
-| **Buyurtma** | Buyurtmalar va to'lovlar tarixi, bajarilganini baholash |
-| **Profil** | Statistika, daraja, promokod kiritish va mavjud promokodlar ro'yxati, referal va Top donaterlar kartochkalari, til/mavzu, rangli yordam havolalari, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
+| **Bosh** | Salomlashuv, uch tugmali balans kartasi (to'ldirish / promokod / yordam), "Yana buyurtma qilish" tasmasi, ommabop xizmatlar to'ri, statistika, Top donaterlar, mijozlar bahosi kartasi |
+| **O'yinlar** | Qidiruv, turkum filtri (Barchasi / Telegram / O'yinlar), 3 ustunli katalog. Chegirma foizi va hudud yorlig'i plitada; texnik ishdagi xizmat xiralashadi va sotib olinmaydi |
+| **To'ldirish** | Balans, yakunlanmagan to'lov (bir bosishda kutish oynasiga qaytadi), to'lov usullari (UZCARD / HUMO), eng kam summa, yordam havolalari, oxirgi to'lovlar |
+| **Buyurtma** | "Buyurtmalar / To'lovlar" segmenti, holat filtri, ixcham qatorlar; qator bosilsa tafsilot oynasi (qayta buyurtma va baholash tugmalari bilan) |
+| **Profil** | Statistika, daraja, promokod oynasi, sodiqlik / referal / Top donaterlar / yordam qatorlari, til va mavzu, bildirishnoma va animatsiya kalitlari, havolalar, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
 
-Mahsulot oynasi: sarlavha kartasi (o'yin nomi + valyuta turi), ID/username maydoni,
-paketlar ro'yxati, promokod, izoh, hisob-kitob va yopishqoq "Sotib olish" paneli.
+Mahsulot oynasi: sarlavhada mahsulot belgisi va nomi, ostida valyuta turi va hudud,
+ID/username maydoni va **saqlangan ID chiplari**, paketlar ro'yxati, yig'iladigan
+promokod va izoh bo'limlari, hisob-kitob va yopishqoq "Sotib olish" paneli.
 
 Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 
@@ -54,9 +55,17 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   (masalan 100 000 → 100 137), shu bilan bank SMS'idan to'lov xatosiz tanib olinadi
 - Paket tanlash, promokod, izoh, mahsulotga mos ma'lumot maydoni
   (@username / Player ID / ID+Zone / nik / havola)
-- Buyurtmalar tarixi: holat bo'yicha filtr, bir bosishda **qayta buyurtma**
-  (mahsulot, paket va ma'lumot maydoni oldindan to'ldiriladi), bajarilganini baholash
-- Promokodni profilda saqlash — keyingi buyurtmaga avtomatik qo'llanadi
+- **Saqlangan ID'lar**: mahsulotga ilgari kiritilgan ID chip sifatida turadi —
+  har safar qo'lda yozish shart emas
+- Bosh sahifada **"Yana buyurtma qilish"** tasmasi — oxirgi olingan mahsulotlar
+- Buyurtmalar tarixi: "Buyurtmalar / To'lovlar" segmenti, holat filtri,
+  qator bosilsa **tafsilot oynasi** (raqam, ma'lumot, summa, chegirma, keshbek,
+  izoh, bekor qilish sababi), bir bosishda **qayta buyurtma** va baholash
+- To'ldirish sahifasida yakunlanmagan to'lov eng ustida — ilova yopilib
+  qaytadan ochilsa ham kutish oynasi bir bosishda qaytadi
+- Promokodni saqlash — keyingi buyurtmaga avtomatik qo'llanadi
+- **Animatsiyalarni kamaytirish** kaliti — eski telefonlarda ilova tezlashadi
+  (tizimning "reduce motion" sozlamasi ham hurmat qilinadi)
 - Top donaterlar reytingi: **Bugun / Hafta / Oy / Hammasi** davri, uchlik podium,
   buyurtmalar soni va o'z o'rningiz alohida qatorda (ismlar qisqartirilgan, ID ochilmaydi)
 - Sodiqlik darajalari oynasi: barcha bosqichlar, keshbek foizi va joriy o'rin
