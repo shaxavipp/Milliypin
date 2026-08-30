@@ -75,8 +75,8 @@ Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
 | Bo'lim | Nima qilinadi |
 |---|---|
 | **Moliya** | Kutayotgan to'lovlar va ochiq buyurtmalar bir bosishda tasdiqlanadi; mijozni ID/@username bo'yicha topib balansiga qo'shish/yechish, bloklash va to'liq tarixini ko'rish |
-| **Buyurtmalar** | Holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekorda pul avtomatik qaytadi) |
-| **To'lovlar** | Holat filtri va ID / @username / summa bo'yicha qidiruv |
+| **Buyurtmalar** | Holat filtri va #raqam / @username / ID / mahsulot bo'yicha qidiruv; "Olindi / Bajarildi / Bekor" (bekorda pul avtomatik qaytadi) |
+| **To'lovlar** | Holat filtri va ID / @username / summa bo'yicha qidiruv (qidirilganda filtr o'zi "Hammasi" ga o'tadi) |
 | **Mijozlar** | Qidiruv, balans +/−, bloklash, tarix |
 | **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
 | **Promokodlar** | Foiz yoki so'mda, limit, min. buyurtma va mijozga ko'rinadigan izoh bilan |
@@ -120,6 +120,7 @@ to'g'ridan-to'g'ri shu branchdan deploy qiling.
    |---|---|
    | `BOT_TOKEN` | BotFather bergan token |
    | `ADMIN_IDS` | Sizning Telegram ID'ingiz (bir nechta bo'lsa vergul bilan) |
+   | `TG_WEBHOOK_SECRET` | O'zingiz o'ylab topgan maxfiy so'z, masalan `milliypin-2026-xY7q`. Bank SMS'idan avtomatik tasdiqlash va kanaldagi tugmalar shusiz ishlamaydi. |
 
 4. Service → **Settings → Networking → Generate Domain** →
    `xxxxx.up.railway.app` havolasi chiqadi. Uni brauzerda ochib tekshiring —
@@ -139,11 +140,12 @@ to'g'ridan-to'g'ri shu branchdan deploy qiling.
           → o'sha havolani qo'ying
 ```
 
-Keyin `/start` va bank SMS'ini o'qish ishlashi uchun webhook o'rnating —
-brauzerda shu manzilni oching (TOKEN va domenni o'zingiznikiga almashtiring):
+Keyin `/start`, kanaldagi tugmalar va bank SMS'ini o'qish ishlashi uchun webhook
+o'rnating — brauzerda shu manzilni oching (TOKEN, domen va sekretni o'zingiznikiga
+almashtiring; `secret_token` aynan `TG_WEBHOOK_SECRET` bilan bir xil bo'lsin):
 
 ```
-https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://xxxxx.up.railway.app/tg/webhook
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://xxxxx.up.railway.app/tg/webhook&secret_token=milliypin-2026-xY7q
 ```
 
 `{"ok":true}` javobi kelsa — tayyor.
@@ -156,6 +158,8 @@ Botni oching → ilovaga kiring → **Profil → Admin panel** (faqat `ADMIN_IDS
    support username va kanal havolasini yozing → **Saqlash**.
 2. **Sozlamalar → Kanallar** → buyurtmalar va to'lovlar uchun kanal `chat_id` sini kiriting,
    yonidagi tugma bilan sinov xabari yuboring. Bot o'sha kanalda **admin** bo'lishi shart.
+   `chat_id` ni bilish uchun kanalga botni qo'shing va `/id` deb yozing — bot
+   raqamni o'zi qaytaradi (kanallarniki `-100...` bilan boshlanadi).
 3. **Katalog** → narxlarni o'zgartiring, mahsulotga rasm havolasi va hudud yorlig'ini qo'ying →
    **Nashr qilish** tugmasini bosing (shundagina o'zgarish mijozlarga ko'rinadi).
 
@@ -179,7 +183,7 @@ imzo tekshiruvi Telegram ichida ishlaydi.
 | `ADMIN_IDS` | ha | Vergul bilan ajratilgan Telegram ID'lar — faqat shular admin panelni ochadi. |
 | `PORT` | — | Standart 3000 (Railway o'zi beradi). |
 | `DATA_DIR` | — | Baza papkasi. Standart `/data`, yozib bo'lmasa `./data`. |
-| `TG_WEBHOOK_SECRET` | tavsiya | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin. **Busiz bank SMS'idan avtomatik tasdiqlash ishlamaydi** — soxta xabar bilan balans to'ldirib olishning oldini olish uchun. |
+| `TG_WEBHOOK_SECRET` | tavsiya | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin. **Busiz bank SMS'idan avtomatik tasdiqlash va kanaldagi tugmalar ishlamaydi** — soxta xabar bilan balans to'ldirib olishning oldini olish uchun. |
 | `SUPPORT_USERNAME` | — | Boshlang'ich support username (keyin admin paneldan o'zgartiriladi). |
 | `ORDER_CHAT_ID` / `TOPUP_CHAT_ID` | — | Kanallarning boshlang'ich qiymati (keyin admin panel ustun turadi). |
 
@@ -194,6 +198,27 @@ Mijoz: aynan shu summani o'tkazadi → "To'lov qildim"
    ↓  to'lovlar kanaliga xabar ketadi
 Admin: bank SMS'ini tekshirib "Tasdiqlash"  →  balansga ASOSIY summa tushadi
 ```
+
+## Telegramning o'zidan boshqarish
+
+Buyurtmalar va to'lovlar kanaliga tushgan har bir kartochka ostida tugmalar bo'ladi —
+admin ilovani ochmasdan, to'g'ridan-to'g'ri Telegramdan ishlaydi:
+
+| Kartochka | Tugmalar |
+|---|---|
+| Buyurtma | «⏳ Olindi» · «✅ Bajarildi» · «❌ Bekor qilish» |
+| To'lov | «✅ Tasdiqlash» · «❌ Rad etish» |
+
+- Tugmani bosgan odam `ADMIN_IDS` da bo'lishi shart — begona odamga «faqat adminlar
+  uchun» degan ogohlantirish chiqadi va holat o'zgarmaydi.
+- Bekor qilish ikki bosqichli: pul qaytariladigan amal bo'lgani uchun oldin
+  «Ha, bekor qilinsin» tasdig'i so'raladi.
+- Amal bajarilgach kartochka matni yangilanadi va tugmalar o'chadi — kanalda
+  buyurtmaning joriy holati doim ko'rinib turadi.
+- `TG_WEBHOOK_SECRET` o'rnatilmagan bo'lsa tugmalar ishlamaydi (yuqoridagi sabab).
+
+Bot buyruqlari: `/start` — ilovani ochish, `/help` — yordam, `/id` — chat va
+foydalanuvchi ID'si (kanalda yozilsa kanalning `chat_id` sini qaytaradi).
 
 **Avtomatik tasdiqlash.** To'lovlar kanaliga (Sozlamalar → To'lovlar kanali) `humocard` yoki
 `cardxabar` kabi bank botini qo'shsangiz va webhook ishlab tursa, server o'sha xabardan
@@ -212,13 +237,13 @@ server.js        HTTP server, API, Telegram Bot API va webhook  (tashqi kutubxon
 db.js            SQLite qatlami (node:sqlite) — mahsulot, buyurtma, to'lov, mijoz, promokod
 seed.js          Birinchi ishga tushishdagi standart katalog
 public/
-  index.html     Ilova karkasi (splash, sarlavha, tablar, sheet) va logotip SVG
+  index.html     Ilova karkasi (splash, sarlavha, tablar, sheet, tasdiq oynasi) va logotip SVG
   styles.css     Dizayn tizimi: rang tokenlari, naqsh, kunduz/tun rejimi
   icons.js       Qo'lda chizilgan SVG ikonkalar to'plami
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
-  admin.js       Admin panel (8 bo'lim)
-test/run.js      53 ta integratsion test — npm test
+  admin.js       Admin panel (10 bo'lim)
+test/run.js      60 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -258,6 +283,8 @@ Top donaterlar reytingi, texnik ishdagi mahsulotni sotib bo'lmasligi va sharh bo
   Bunday holatda admin balansni qo'lda to'g'irlaydi, shunda hisob buzilmaydi.
 - Admin kiritgan havolalar `http(s)` yoki `tg` sxemasida bo'lishi tekshiriladi.
 - Bloklangan mijoz na buyurtma bera oladi, na balans to'ldira oladi.
+- Kanaldagi tugmalarni faqat `ADMIN_IDS` dagi akkauntlar bosa oladi va callback
+  faqat to'g'ri `secret_token` bilan kelgan bo'lsa qabul qilinadi.
 
 ## Ishlash
 

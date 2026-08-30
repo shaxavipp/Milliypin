@@ -16,6 +16,8 @@
   const api = (...a) => window.mpApi(...a);
   const toast = (...a) => window.mpToast(...a);
   const errText = e => window.mpErr(e);
+  const ask = (title, o) => window.mpConfirm(title, o);
+  const askText = (title, o) => window.mpPrompt(title, o);
   const el = id => document.getElementById(id);
   const ICO = window.ICO;
 
@@ -31,6 +33,7 @@
     orderFilter: "new",
     payFilter: "pending",
     payQuery: "",
+    orderQuery: "",
     userQuery: "",
     catalog: [],
     settings: null
@@ -255,11 +258,17 @@
   ];
 
   async function scrOrders() {
-    const list = await api("/api/admin/orders?status=" + encodeURIComponent(A.orderFilter));
+    const list = await api("/api/admin/orders?status=" + encodeURIComponent(A.orderFilter) +
+      (A.orderQuery ? "&q=" + encodeURIComponent(A.orderQuery) : ""));
     body(`${backBar()}
       <div class="pills">
         ${OSTATUS.map(s => `<button class="pill ${s.id === A.orderFilter ? "on" : ""}" data-ost="${s.id}">${s.label}</button>`).join("")}
       </div>
+      <div class="inline" style="margin-bottom:11px">
+        <input class="input" id="oq" placeholder="#raqam / @username / ID / mahsulot" value="${esc(A.orderQuery)}">
+        <button class="btn ${A.orderQuery ? "btn--line" : "btn--acc"}" id="oqBtn">${ICO(A.orderQuery ? "x" : "search", 15)}</button>
+      </div>
+      <div class="tiny mut" style="margin:-4px 0 9px">Topildi: ${list.length} ta</div>
       ${list.length ? list.map(o => `
         <div class="ocard" style="margin-left:0;margin-right:0">
           <div class="oc-top">
@@ -285,6 +294,19 @@
         </div>`).join("")
         : `<div class="empty">${ICO("scroll", 34)}<div class="empty-t">Bo'sh</div></div>`}`);
 
+    // Qidiruvda holat filtri "Hammasi" ga o'tadi: admin #32 ni izlaganda u
+    // qaysi holatda ekanini bilmaydi, "Yangi" filtri esa uni yashirib qo'yardi.
+    const runQ = () => {
+      A.orderQuery = el("oq").value.trim();
+      if (A.orderQuery) A.orderFilter = "all";
+      go("orders");
+    };
+    el("oqBtn").onclick = () => {
+      if (A.orderQuery) { el("oq").value = ""; }
+      runQ();
+    };
+    el("oq").onkeydown = e => { if (e.key === "Enter") runQ(); };
+
     el("admBody").addEventListener("click", async e => {
       const f = e.target.closest("[data-ost]");
       if (f) { A.orderFilter = f.getAttribute("data-ost"); return go("orders"); }
@@ -295,7 +317,16 @@
       const b = e.target.closest("[data-ord]");
       if (!b) return;
       const action = b.getAttribute("data-ord");
-      const note = action === "cancel" ? (prompt("Bekor qilish sababi (ixtiyoriy):") || "") : "";
+      let note = "";
+      if (action === "cancel") {
+        note = await askText("Buyurtmani bekor qilish", {
+          text: "Sabab mijozga xabar qilinadi. Bo'sh qoldirsangiz ham bo'ladi.",
+          placeholder: "Masalan: ID noto'g'ri", no: "Orqaga", yes: "Bekor qilinsin", danger: true
+        });
+        if (note === null) return;
+      }
+      if (action === "done" && !(await ask("Buyurtma bajarildi deb belgilansinmi?",
+        { yes: "Bajarildi", danger: false }))) return;
       b.disabled = true;
       try {
         await api("/api/admin/order", { body: { id: b.getAttribute("data-id"), action, note } });
@@ -323,7 +354,7 @@
       </div>
       <div class="inline" style="margin-bottom:11px">
         <input class="input" id="pq" placeholder="ID / @username / summa" value="${esc(A.payQuery)}">
-        <button class="btn btn--acc" id="pqBtn">${ICO("search", 15)}</button>
+        <button class="btn ${A.payQuery ? "btn--line" : "btn--acc"}" id="pqBtn">${ICO(A.payQuery ? "x" : "search", 15)}</button>
       </div>
       <div class="hint" style="margin-bottom:11px">${ICO("info", 13)}<span>Bank SMS'idagi summa bilan solishtiring. Tasdiqlangach mijoz balansiga <b>asosiy summa</b> tushadi.</span></div>
       ${list.length ? list.map(p => `
@@ -347,8 +378,15 @@
         </div>`).join("")
         : `<div class="empty">${ICO("card", 34)}<div class="empty-t">Bo'sh</div></div>`}`);
 
-    const run = () => { A.payQuery = el("pq").value.trim(); go("payments"); };
-    el("pqBtn").onclick = run;
+    const run = () => {
+      A.payQuery = el("pq").value.trim();
+      if (A.payQuery) A.payFilter = "all";
+      go("payments");
+    };
+    el("pqBtn").onclick = () => {
+      if (A.payQuery) { el("pq").value = ""; }
+      run();
+    };
     el("pq").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
 
     el("admBody").addEventListener("click", async e => {
@@ -534,7 +572,7 @@
       editItem(0);
     };
 
-    el("admBody").addEventListener("click", e => {
+    el("admBody").addEventListener("click", async e => {
       const num = sel => {
         const n = e.target.closest("[data-" + sel + "]");
         return n ? Number(n.getAttribute("data-" + sel)) : -1;
@@ -548,9 +586,14 @@
         A.catalog.splice(i - 1, 0, x);
         return renderCatalog();
       }
-      if ((i = num("cdel")) >= 0 && confirm("Mahsulot o'chirilsinmi?")) {
-        A.catalog.splice(i, 1);
-        return renderCatalog();
+      if ((i = num("cdel")) >= 0) {
+        const idx = i;
+        const nm = window.I18N.pick((A.catalog[idx] || {}).title);
+        if (await ask("Mahsulot o'chirilsinmi?", { text: nm, yes: "O'chirish" })) {
+          A.catalog.splice(idx, 1);
+          renderCatalog();
+        }
+        return;
       }
     });
   }
@@ -755,7 +798,7 @@
     el("admBody").addEventListener("click", async e => {
       const d = e.target.closest("[data-rdel]");
       if (!d) return;
-      if (!confirm("Sharh o'chirilsinmi?")) return;
+      if (!(await ask("Sharh o'chirilsinmi?", { yes: "O'chirish" }))) return;
       try {
         await api("/api/admin/review", { body: { action: "delete", id: d.getAttribute("data-rdel") } });
         toast("O'chirildi", "ok");
@@ -788,7 +831,10 @@
       try { items = JSON.parse(el("impBox").value); }
       catch (e) { return toast("JSON noto'g'ri", "err"); }
       if (!Array.isArray(items) || !items.length) return toast("Ro'yxat bo'sh", "err");
-      if (!confirm("Joriy katalog " + items.length + " ta mahsulot bilan almashtirilsinmi?")) return;
+      if (!(await ask("Katalog almashtirilsinmi?", {
+        text: "Joriy katalog o'rniga " + items.length + " ta mahsulot yoziladi. Bu amalni qaytarib bo'lmaydi.",
+        yes: "Almashtirish"
+      }))) return;
       try {
         const r = await api("/api/admin/catalog", { body: { items } });
         toast("Import qilindi: " + r.count + " ta", "ok");
@@ -1008,7 +1054,9 @@
     el("castSend").onclick = async () => {
       const text = el("castText").value.trim();
       if (!text) return toast("Matn kiriting", "err");
-      if (!confirm("Xabar barcha foydalanuvchilarga yuborilsinmi?")) return;
+      if (!(await ask("Xabar yuborilsinmi?", {
+        text: "Xabar barcha ro'yxatdan o'tgan mijozlarga boradi.", yes: "Yuborish", danger: false
+      }))) return;
       const b = el("castSend");
       b.disabled = true; b.textContent = t("common.loading");
       try {

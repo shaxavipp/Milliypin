@@ -165,7 +165,9 @@
       "common.close": "Yopish",
       "common.loading": "Yuklanmoqda...",
       "common.som": "so'm",
-      "common.back": "Orqaga"
+      "common.back": "Orqaga",
+      "common.yes": "Ha",
+      "common.cancel": "Bekor qilish"
     },
 
     ru: {
@@ -329,7 +331,9 @@
       "common.close": "Закрыть",
       "common.loading": "Загрузка...",
       "common.som": "сум",
-      "common.back": "Назад"
+      "common.back": "Назад",
+      "common.yes": "Да",
+      "common.cancel": "Отмена"
     }
   };
 

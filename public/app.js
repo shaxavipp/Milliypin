@@ -134,6 +134,57 @@
   window.mpSheet = openSheet;
   window.mpCloseSheet = closeSheet;
 
+  /* ══════════ Tasdiq / matn so'rash ══════════ */
+  // Telegram WebView'da window.confirm va window.prompt barcha mijozlarda
+  // ishlamaydi (iOS'da jim o'tib ketadi). Shuning uchun o'z oynamiz.
+
+  let askDone = null;
+
+  function askClose(val) {
+    if (el("askWrap").hidden) return;
+    el("askWrap").hidden = true;
+    const f = askDone; askDone = null;
+    if (f) f(val);
+  }
+
+  function ask(o) {
+    return new Promise(resolve => {
+      askClose(null);                       // ochiq oyna bo'lsa — bekor qilinadi
+      askDone = resolve;
+      const inp = el("askInput");
+      el("askTitle").textContent = o.title || "";
+      el("askText").textContent = o.text || "";
+      el("askText").hidden = !o.text;
+      inp.hidden = !o.input;
+      inp.value = o.value || "";
+      inp.placeholder = o.placeholder || "";
+      el("askNo").textContent = o.no || t("common.cancel");
+      const yes = el("askYes");
+      yes.textContent = o.yes || t("common.yes");
+      yes.className = "btn btn-1 " + (o.danger ? "btn--clay" : "btn--acc");
+      el("askWrap").hidden = false;
+      haptic("light");
+      if (o.input) setTimeout(() => inp.focus(), 60);
+    });
+  }
+
+  el("askYes").addEventListener("click", () => {
+    const inp = el("askInput");
+    askClose(inp.hidden ? true : inp.value.trim());
+  });
+  el("askInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); el("askYes").click(); }
+  });
+  document.getElementById("askWrap").addEventListener("click", e => {
+    if (e.target.closest("[data-askno]")) askClose(null);
+  });
+
+  // Tasdiq: true yoki null. Matn so'rash: kiritilgan satr yoki null (bekor).
+  window.mpConfirm = (title, o) => ask(Object.assign({ title, danger: true }, o || {}));
+  window.mpPrompt = (title, o) => ask(Object.assign({ title, input: true }, o || {}));
+  window.mpAskOpen = () => !el("askWrap").hidden;
+  window.mpAskClose = () => askClose(null);
+
   /* ══════════ Mavzu va til ══════════ */
 
   function applyTheme(mode) {
@@ -1309,6 +1360,7 @@
         tg.ready(); tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
         if (tg.BackButton) tg.BackButton.onClick(() => {
+          if (window.mpAskOpen()) return window.mpAskClose();
           if (sheetBack && sheetBack() === true) return;
           closeSheet();
         });

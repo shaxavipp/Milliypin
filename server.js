@@ -281,11 +281,11 @@ function tgSend(chatId, text, extra, force) {
     chat_id: String(chatId), text, parse_mode: "HTML", disable_web_page_preview: true
   }, extra || {}));
 }
-function tgEdit(chatId, messageId, text) {
+function tgEdit(chatId, messageId, text, extra) {
   if (!chatId || !messageId) return Promise.resolve({ ok: false });
-  return tgApi("editMessageText", {
+  return tgApi("editMessageText", Object.assign({
     chat_id: String(chatId), message_id: messageId, text, parse_mode: "HTML", disable_web_page_preview: true
-  });
+  }, extra || {}));
 }
 // Telegram sendDocument — multipart/form-data qo'lda yig'iladi (tashqi kutubxonasiz).
 function tgSendDocument(chatId, buffer, filename, caption) {
@@ -353,13 +353,32 @@ function topupCard(p) {
   ].join("\n");
 }
 
+// Kanaldagi kartochka tugmalari: admin ilovani ochmasdan, to'g'ridan-to'g'ri
+// Telegramdan buyurtmani boshqaradi. Tugmani bosgan odam ADMIN_IDS'da bo'lishi
+// shart — buni callback ishlovchisi tekshiradi.
+function orderKb(o) {
+  if (o.status === "done" || o.status === "canceled") return { inline_keyboard: [] };
+  const row = [];
+  if (o.status === "new") row.push({ text: "⏳ Olindi", callback_data: "o:proc:" + o.id });
+  row.push({ text: "✅ Bajarildi", callback_data: "o:done:" + o.id });
+  return { inline_keyboard: [row, [{ text: "❌ Bekor qilish", callback_data: "o:cancel:" + o.id }]] };
+}
+function payKb(p) {
+  if (p.status !== "pending") return { inline_keyboard: [] };
+  return { inline_keyboard: [[
+    { text: "✅ Tasdiqlash", callback_data: "p:ok:" + p.id },
+    { text: "❌ Rad etish", callback_data: "p:no:" + p.id }
+  ]] };
+}
+
 async function notifyOrder(o) {
   const text = orderCard(o);
   const cid = chan("order");
   if (cid) {
-    if (o.chanMsgId) await tgEdit(cid, o.chanMsgId, text);
+    const kb = { reply_markup: orderKb(o) };
+    if (o.chanMsgId) await tgEdit(cid, o.chanMsgId, text, kb);
     else {
-      const r = await tgSend(cid, text);
+      const r = await tgSend(cid, text, kb);
       if (r && r.ok && r.result) { o.chanMsgId = r.result.message_id; store.orderPut(db, o); }
     }
   }
@@ -375,9 +394,10 @@ async function notifyTopup(p) {
   const text = topupCard(p);
   const cid = chan("topup") || chan("order");
   if (cid) {
-    if (p.chanMsgId) await tgEdit(cid, p.chanMsgId, text);
+    const kb = { reply_markup: payKb(p) };
+    if (p.chanMsgId) await tgEdit(cid, p.chanMsgId, text, kb);
     else {
-      const r = await tgSend(cid, text);
+      const r = await tgSend(cid, text, kb);
       if (r && r.ok && r.result) { p.chanMsgId = r.result.message_id; store.paymentPut(db, p); }
     }
   }
@@ -882,32 +902,62 @@ route("GET", "/api/admin/orders", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const q = new URLSearchParams(url.parse(req.url).query || "");
   const st = str(q.get("status"), 20);
-  send(res, 200, store.ordersByStatus(db, st && st !== "all" ? st : null, 200));
+  // Qidiruv: "#12" yoki "12" — buyurtma raqami, "@ali" — username, qolgani esa
+  // ID, mahsulot nomi va kiritilgan ma'lumot (o'yin ID'si) bo'yicha izlanadi.
+  const needle = str(q.get("q"), 40).toLowerCase().replace(/^[#@]/, "");
+  let list = store.ordersByStatus(db, st && st !== "all" ? st : null, 400);
+  if (needle) list = list.filter(o =>
+    String(o.seq) === needle ||
+    String(o.uid).includes(needle) ||
+    String(o.username || "").toLowerCase().includes(needle) ||
+    String(o.target || "").toLowerCase().includes(needle) ||
+    String(o.itemTitle || "").toLowerCase().includes(needle));
+  send(res, 200, list.slice(0, 200));
 });
+
+// Buyurtma holatini o'zgartirish — ham admin panelidan, ham Telegramdagi
+// tugmalardan bir xil yo'l bilan bajariladi (mantiq ikki joyda takrorlanmaydi).
+function applyOrderAction(o, action, note) {
+  if (action === "processing" && o.status === "new") o.status = "processing";
+  else if (action === "done" && o.status !== "done" && o.status !== "canceled") {
+    o.status = "done"; o.doneAt = now(); o.note = str(note, 300) || o.note;
+    rewardOnDone(o);
+    cacheClear();
+  } else if (action === "cancel" && o.status !== "canceled") {
+    // Bajarilgan buyurtma bekor qilinmaydi: pul allaqachon o'tgan, "spent"
+    // hisoblangan, keshbek va referal bonusi to'langan. Bunday holatda admin
+    // mijoz balansini qo'lda to'g'irlaydi — shunda hisob-kitob buzilmaydi.
+    if (o.status === "done") return { error: "already_done" };
+    balanceAdd(o.uid, o.total, "refund");
+    o.refunded = true;
+    o.status = "canceled";
+    o.cancelReason = str(note, 200);
+  } else return { error: "bad_action", status: o.status };
+  store.orderPut(db, o);
+  notifyOrder(o);
+  return { ok: true };
+}
+
+function applyPaymentAction(p, action, note) {
+  if (p.status === "confirmed") return { error: "already_confirmed" };
+  if (action === "confirm") {
+    p.status = "confirmed"; p.confirmedAt = now(); p.confirmedBy = "admin";
+    balanceAdd(p.uid, p.base || p.amount, "topup");
+  } else {
+    p.status = "rejected"; p.rejectReason = str(note, 200);
+  }
+  store.paymentPut(db, p);
+  notifyTopup(p);
+  return { ok: true };
+}
 
 route("POST", "/api/admin/order", (req, res) => {
   if (!requireAdmin(req, res)) return;
   readBody(req, res, b => {
     const o = store.orderGet(db, str(b.id, 40));
     if (!o) return send(res, 404, { error: "not_found" });
-    const action = str(b.action, 20);
-    if (action === "processing" && o.status === "new") o.status = "processing";
-    else if (action === "done" && o.status !== "done" && o.status !== "canceled") {
-      o.status = "done"; o.doneAt = now(); o.note = str(b.note, 300) || o.note;
-      rewardOnDone(o);
-      cacheClear();
-    } else if (action === "cancel" && o.status !== "canceled") {
-      // Bajarilgan buyurtma bekor qilinmaydi: pul allaqachon o'tgan, "spent"
-      // hisoblangan, keshbek va referal bonusi to'langan. Bunday holatda admin
-      // mijoz balansini qo'lda to'g'irlaydi — shunda hisob-kitob buzilmaydi.
-      if (o.status === "done") return send(res, 400, { error: "already_done" });
-      balanceAdd(o.uid, o.total, "refund");
-      o.refunded = true;
-      o.status = "canceled";
-      o.cancelReason = str(b.note, 200);
-    } else return send(res, 400, { error: "bad_action", status: o.status });
-    store.orderPut(db, o);
-    notifyOrder(o);
+    const r = applyOrderAction(o, str(b.action, 20), b.note);
+    if (r.error) return send(res, 400, r);
     send(res, 200, { ok: true, order: o });
   });
 });
@@ -938,15 +988,8 @@ route("POST", "/api/admin/payment", (req, res) => {
   readBody(req, res, b => {
     const p = store.paymentGet(db, str(b.id, 40));
     if (!p) return send(res, 404, { error: "not_found" });
-    if (p.status === "confirmed") return send(res, 400, { error: "already_confirmed" });
-    if (str(b.action, 20) === "confirm") {
-      p.status = "confirmed"; p.confirmedAt = now(); p.confirmedBy = "admin";
-      balanceAdd(p.uid, p.base || p.amount, "topup");
-    } else {
-      p.status = "rejected"; p.rejectReason = str(b.note, 200);
-    }
-    store.paymentPut(db, p);
-    notifyTopup(p);
+    const r = applyPaymentAction(p, str(b.action, 20), b.note);
+    if (r.error) return send(res, 400, r);
     send(res, 200, { ok: true, payment: p });
   });
 });
@@ -1197,8 +1240,65 @@ async function setBotCommands() {
   });
 }
 
+// Kanaldagi tugmalar. Telegram callback'ni faqat webhook sekreti to'g'ri
+// kelgan so'rovda ishonchli deb bilamiz — aks holda begona odam o'zini admin
+// qilib ko'rsatuvchi soxta update yuborib, buyurtmani "bajarildi" qila olardi.
+async function handleCallback(cq, trusted) {
+  const reply = (text, alert) => tgApi("answerCallbackQuery",
+    { callback_query_id: cq.id, text: text || "", show_alert: !!alert });
+
+  if (!trusted) return reply("Webhook sekreti sozlanmagan — tugmalar o'chirilgan.", true);
+  if (!isAdmin(cq.from)) return reply("Bu tugmalar faqat adminlar uchun.", true);
+
+  const [kind, act, id] = String(cq.data || "").split(":");
+  const cid = cq.message && cq.message.chat && cq.message.chat.id;
+  const mid = cq.message && cq.message.message_id;
+
+  if (kind === "o") {
+    const o = store.orderGet(db, str(id, 40));
+    if (!o) return reply("Buyurtma topilmadi.", true);
+
+    // Bekor qilish — pul qaytariladi, shuning uchun ikki bosqichli tasdiq.
+    if (act === "cancel") {
+      await tgApi("editMessageReplyMarkup", {
+        chat_id: String(cid), message_id: mid,
+        reply_markup: { inline_keyboard: [[
+          { text: "Ha, bekor qilinsin", callback_data: "o:cancelY:" + o.id },
+          { text: "Yo'q", callback_data: "o:back:" + o.id }
+        ]] }
+      });
+      return reply("Tasdiqlang");
+    }
+    if (act === "back") {
+      await tgApi("editMessageReplyMarkup",
+        { chat_id: String(cid), message_id: mid, reply_markup: orderKb(o) });
+      return reply("");
+    }
+
+    const map = { proc: "processing", done: "done", cancelY: "cancel" };
+    const r = applyOrderAction(o, map[act], act === "cancelY" ? "Admin bekor qildi" : "");
+    if (r.error) return reply(r.error === "already_done"
+      ? "Bajarilgan buyurtmani bekor qilib bo'lmaydi." : "Bu holatda amal bajarilmaydi.", true);
+    return reply(act === "done" ? "✅ Bajarildi" : act === "cancelY" ? "❌ Bekor qilindi" : "⏳ Olindi");
+  }
+
+  if (kind === "p") {
+    const pay = store.paymentGet(db, str(id, 40));
+    if (!pay) return reply("To'lov topilmadi.", true);
+    const r = applyPaymentAction(pay, act === "ok" ? "confirm" : "reject",
+      act === "ok" ? "" : "Admin rad etdi");
+    if (r.error) return reply("Bu to'lov allaqachon tasdiqlangan.", true);
+    return reply(act === "ok" ? "✅ Tasdiqlandi" : "❌ Rad etildi");
+  }
+
+  return reply("");
+}
+
 async function handleUpdate(upd, trusted) {
-  const msg = upd.message || upd.edited_message;
+  if (upd.callback_query) return handleCallback(upd.callback_query, trusted);
+  // Kanalga yozilgan xabar `message` emas, `channel_post` bo'lib keladi — bank
+  // boti to'lovlar kanalida bo'lsa, SMS aynan shu turda tushadi.
+  const msg = upd.message || upd.edited_message || upd.channel_post || upd.edited_channel_post;
   if (!msg || !msg.text) return;
   const chatId = msg.chat && msg.chat.id;
   const text = String(msg.text || "");
@@ -1229,8 +1329,13 @@ async function handleUpdate(upd, trusted) {
     return;
   }
 
-  if (msg.chat && msg.chat.type === "private" && text.startsWith("/id")) {
-    await tgSend(chatId, "Sizning ID: <code>" + msg.from.id + "</code>\nChat ID: <code>" + chatId + "</code>", null, true);
+  // /id har qanday chatda ishlaydi: kanalga yozilsa, kanalning chat_id sini
+  // qaytaradi — admin panelidagi "Kanallar" bo'limiga aynan shu raqam kiritiladi.
+  if (text.startsWith("/id")) {
+    await tgSend(chatId, [
+      msg.from ? "Sizning ID: <code>" + msg.from.id + "</code>" : "",
+      "Chat ID: <code>" + chatId + "</code>"
+    ].filter(Boolean).join("\n"), null, true);
     return;
   }
 

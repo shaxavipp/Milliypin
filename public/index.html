@@ -78,6 +78,19 @@
   </div>
 </div>
 
+<div id="askWrap" hidden>
+  <div class="scrim" data-askno></div>
+  <div class="ask" role="dialog" aria-modal="true">
+    <div class="ask-t" id="askTitle"></div>
+    <div class="ask-s" id="askText" hidden></div>
+    <input class="input" id="askInput" autocomplete="off" hidden>
+    <div class="ask-a">
+      <button class="btn btn--line btn-1" type="button" id="askNo" data-askno></button>
+      <button class="btn btn--acc btn-1" type="button" id="askYes"></button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
 <script src="/icons.js"></script>

@@ -21,6 +21,8 @@ process.env.DATA_DIR = DATA_DIR;
 process.env.BOT_TOKEN = BOT_TOKEN;
 process.env.ADMIN_IDS = String(ADMIN_ID);
 process.env.PORT = String(PORT);
+const WH_SECRET = "test-webhook-secret";
+process.env.TG_WEBHOOK_SECRET = WH_SECRET;
 
 const app = require("../server.js");
 
@@ -63,6 +65,21 @@ async function call(pathname, opts) {
   try { data = await r.json(); } catch (e) {}
   return { status: r.status, data };
 }
+
+// Telegram webhook'iga update yuborish (sekret sarlavhasi bilan yoki busiz)
+async function webhook(update, secret) {
+  const headers = { "Content-Type": "application/json" };
+  if (secret !== null) headers["x-telegram-bot-api-secret-token"] = secret || WH_SECRET;
+  const r = await fetch("http://127.0.0.1:" + PORT + "/tg/webhook", {
+    method: "POST", headers, body: JSON.stringify(update)
+  });
+  await r.text();
+  await new Promise(res => setTimeout(res, 60)); // ishlov tugasin
+  return r.status;
+}
+const cbq = (from, data) => ({
+  callback_query: { id: "cb" + Date.now(), from, data, message: { message_id: 1, chat: { id: -100123 } } }
+});
 
 /* ---------- testlar ---------- */
 
@@ -470,6 +487,59 @@ async function main() {
     assert.strictEqual(c.data.channelUrl, "", "xavfli sxema o'tib ketdi");
     assert.strictEqual(c.data.reviewsUrl, "https://t.me/ok");
     assert.strictEqual(c.data.socials.length, 0, "xavfli havolali tarmoq qoldi");
+  });
+
+  group("Telegramdagi admin tugmalari");
+  await it("sekretsiz kelgan webhook rad etiladi", async () => {
+    const st = await webhook(cbq(ADMIN, "o:done:xxx"), "boshqa-sekret");
+    assert.strictEqual(st, 403);
+  });
+  await it("admin tugmasi buyurtmani bajarilgan qiladi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    assert.strictEqual(r.status, 200);
+    const id = r.data.order.id;
+    assert.strictEqual(await webhook(cbq(ADMIN, "o:proc:" + id)), 200);
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "processing");
+    assert.strictEqual(await webhook(cbq(ADMIN, "o:done:" + id)), 200);
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "done");
+  });
+  await it("admin bo'lmagan odam tugmani bossa holat o'zgarmaydi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const id = r.data.order.id;
+    await webhook(cbq(USER, "o:done:" + id));
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "new");
+    await call("/api/admin/order", { as: ADMIN, body: { id, action: "cancel", note: "tozalash" } });
+  });
+  await it("bekor qilish ikki bosqichli: birinchi bosishda holat saqlanadi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const id = r.data.order.id;
+    await webhook(cbq(ADMIN, "o:cancel:" + id));
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "new", "birinchi bosishda bekor bo'lib ketdi");
+    await webhook(cbq(ADMIN, "o:cancelY:" + id));
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "canceled");
+  });
+  await it("to'lov tugmasi balansni to'ldiradi", async () => {
+    const top = await call("/api/topup", { as: USER, body: { amount: 70000 } });
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    await webhook(cbq(ADMIN, "p:ok:" + top.data.id));
+    assert.strictEqual(app.store.paymentGet(app.db, top.data.id).status, "confirmed");
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before + 70000);
+  });
+
+  group("Admin qidiruvi");
+  await it("buyurtma raqami bo'yicha topiladi", async () => {
+    const all = (await call("/api/admin/orders?status=all", { as: ADMIN })).data;
+    const one = all[0];
+    const r = await call("/api/admin/orders?status=all&q=" + one.seq, { as: ADMIN });
+    assert.strictEqual(r.data.length, 1);
+    assert.strictEqual(r.data[0].id, one.id);
+  });
+  await it("username va ma'lumot bo'yicha topiladi", async () => {
+    const byName = await call("/api/admin/orders?status=all&q=@doniyor", { as: ADMIN });
+    assert.ok(byName.data.length >= 1, "username bo'yicha topilmadi");
+    const none = await call("/api/admin/orders?status=all&q=yo-q-bunday", { as: ADMIN });
+    assert.strictEqual(none.data.length, 0);
   });
 
   group("Statistika");
