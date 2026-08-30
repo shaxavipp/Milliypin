@@ -348,6 +348,13 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -.018em; }
 .tile[data-glaze="2"] .tile-top .ic { color: var(--gold); }
 .tile[data-glaze="3"] .tile-top .ic { color: var(--ok); }
 .tile[data-glaze="0"] .tile-top { background: linear-gradient(160deg, var(--accsoft), transparent 70%), var(--card2); }
+/* Muqovasiz plitada sirlangan koshin naqshi ko'rinib turadi — bo'sh maydon
+   qolmaydi, ammo ikonka ustidan bosmaydi. */
+.tile:not(.has-cover) .tile-top::before {
+  content: ""; position: absolute; inset: 0; opacity: .5; pointer-events: none;
+  background-image: var(--naqsh); background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 45%, transparent 34%, #000 76%);
+}
 .tile[data-glaze="1"] .tile-top { background: linear-gradient(160deg, var(--claysoft), transparent 70%), var(--card2); }
 .tile[data-glaze="2"] .tile-top { background: linear-gradient(160deg, var(--goldsoft), transparent 70%), var(--card2); }
 .tile[data-glaze="3"] .tile-top { background: linear-gradient(160deg, var(--oksoft), transparent 70%), var(--card2); }
@@ -371,8 +378,12 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -.018em; }
 .row-b { flex: 1; min-width: 0; }
 .row-t { display: block; font-size: 13px; font-weight: 700; letter-spacing: -.012em; }
 .row-s { display: block; font-size: 11px; color: var(--mut); margin-top: 1px; }
-.row-e { flex: 0 0 auto; text-align: right; }
+.row-e { flex: 0 0 auto; text-align: right; display: flex; flex-direction: column;
+  align-items: flex-end; gap: 4px; }
 .row-p { display: block; font-size: 13px; font-weight: 700; color: var(--acc); }
+/* Uzun nomlar qatorni buzmasin */
+.row-t, .row-s { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-am { font-size: 13px; font-weight: 700; color: var(--txt); }
 
 /* ─────────────────── 11. Yorliqlar ─────────────────── */
 
@@ -681,7 +692,7 @@ select.input { background-image: none; }
 /* ══════════════════════════════════════════════════════════════════════════
    23. Tarix qatlami — me'moriy bezaklar
    Peshtoq (sivri yoy) va gumbaz siluetlari interfeysning tayanch nuqtalarida:
-   sarlavha, balans kartasi va banner. Zamonaviy shisha yuzalar ustidagi
+   sarlavha va balans kartasi. Zamonaviy shisha yuzalar ustidagi
    tarixiy chiziq — "eski va yangi" birga turadi.
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -719,34 +730,6 @@ select.input { background-image: none; }
 }
 .quick button .ic { width: 18px; height: 18px; color: var(--acc); }
 
-/* Banner — peshtoq ramkasidagi e'lon */
-.banner {
-  position: relative; overflow: hidden; margin: 12px 14px 0;
-  border: 1px solid var(--line2); border-radius: var(--r-lg);
-  background: linear-gradient(135deg, var(--card2), var(--card) 60%);
-  box-shadow: var(--sh2), var(--inset);
-}
-/* Ayvon arkadasi — banner poydevorida takrorlanadigan sivri yoylar galereyasi */
-.banner-arcade {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 30px;
-  pointer-events: none; opacity: .3;
-  background-image: var(--arkada);
-  background-repeat: repeat-x;
-  background-position: left bottom;
-  mask-image: linear-gradient(to top, #000 55%, transparent);
-}
-.banner-in { position: relative; z-index: 1; padding: 15px 15px 30px; display: flex; align-items: center; gap: 13px; }
-.banner-mark { width: 44px; height: 44px; flex: 0 0 auto; color: var(--gold); }
-.banner-mark svg { width: 100%; height: 100%; }
-.banner-t { font-size: 14.5px; font-weight: 800; letter-spacing: -.02em; }
-.banner-s { font-size: 11.5px; color: var(--mut); margin-top: 3px; line-height: 1.4; }
-.banner-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
-.banner-chip {
-  font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: var(--r-xs);
-  border: 1px solid var(--line2); color: var(--mut2); background: var(--bg2);
-}
-
 /* Qidiruv */
 .search {
   display: flex; align-items: center; gap: 9px; margin: 0 14px 10px;
@@ -758,17 +741,7 @@ select.input { background-image: none; }
   color: var(--txt); font-size: 13.5px; font-family: inherit; }
 .search input::placeholder { color: var(--mut); }
 
-/* Plita: reyting va texnik ish holati */
-.tile-rate {
-  position: absolute; bottom: 5px; right: 5px; z-index: 2;
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 9px; font-weight: 800;
-  padding: 2px 6px; border-radius: var(--r-xs);
-  background: rgba(0, 0, 0, .55); color: var(--gold);
-  backdrop-filter: blur(4px);
-}
-[data-theme="light"] .tile-rate { background: rgba(255, 255, 255, .8); }
-.tile-rate .ic { width: 9px; height: 9px; }
+/* Plita: texnik ish holati */
 .tile.maint { opacity: .55; }
 .tile-maint {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3;
@@ -832,12 +805,24 @@ select.input { background-image: none; }
 .bigcard .t { font-size: 13px; font-weight: 800; margin-top: 9px; letter-spacing: -.015em; line-height: 1.3; }
 .bigcard .d { font-size: 10.5px; color: var(--mut); margin-top: 3px; }
 
-/* Til almashtirgich */
+/* Segment almashtirgich — til tanlash va "buyurtma / to'lov" bo'limlari */
 .seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: var(--r-sm);
   background: var(--card2); border: 1px solid var(--line); }
 .seg button { padding: 5px 13px; border-radius: var(--r-xs);
   font-size: 11.5px; font-weight: 800; color: var(--mut); }
 .seg button.on { background: var(--acc); color: #04222A; }
+/* Kenglikka yoyilgan variant: ekran bo'ylab ikki teng bo'lak */
+.seg--w { display: flex; margin: 0 14px 11px; border-radius: var(--r); }
+.seg--w button { flex: 1; padding: 9px 10px; font-size: 12.5px; border-radius: var(--r-sm); }
+
+/* Tafsilot jadvali — buyurtma oynasidagi "kalit → qiymat" qatorlari */
+.dl { border: 1px solid var(--line); border-radius: var(--r); background: var(--card);
+  overflow: hidden; margin-top: 11px; }
+.dl-r { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 12px; font-size: 12.5px; }
+.dl-r + .dl-r { border-top: 1px solid var(--line); }
+.dl-r > span { color: var(--mut); flex: 0 0 auto; }
+.dl-r > b { font-weight: 700; text-align: right; min-width: 0; word-break: break-word; }
 
 /* Mahsulot sahifasi: yopishqoq sotib olish paneli */
 .buybar {
@@ -846,16 +831,6 @@ select.input { background-image: none; }
   background: var(--hdr); backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass);
   border-top: 1px solid var(--hdrline);
 }
-
-/* Mahsulot sarlavhasi — peshtoq ramkasida */
-.phead { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px;
-  padding: 13px; border: 1px solid var(--line); border-radius: var(--r);
-  background: var(--card); box-shadow: var(--sh1), var(--inset); }
-.phead-ic { width: 46px; height: 46px; flex: 0 0 auto; border-radius: var(--r-sm);
-  display: grid; place-items: center; border: 1px solid var(--line2); background: var(--card2); }
-.phead-ic .ic { width: 24px; height: 24px; }
-.phead-t { font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
-.phead-s { font-size: 11.5px; color: var(--mut); margin-top: 2px; }
 
 /* Paket qatori — ikonka + nom + narx */
 .tier { display: flex; align-items: center; gap: 10px; }
@@ -979,25 +954,70 @@ select.input { background-image: none; }
 .faq-i.open .faq-q .ic { transform: rotate(45deg); }
 .faq-a { padding: 0 12px 13px 47px; font-size: 12.5px; color: var(--mut2); line-height: 1.5; }
 
-/* ── Mahsulot sahifasi: muqova sarlavhasi ── */
-.pcover { position: relative; overflow: hidden; margin: -12px -14px 0; height: 156px;
-  background: var(--card2); }
-.pcover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.pcover::after { content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,.15), var(--bg) 96%); }
-.pcover-in { position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 1;
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-.pcover-t { font-size: 20px; font-weight: 800; letter-spacing: -.03em; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
-.pcover-s { font-size: 12px; color: var(--mut2); margin-top: 2px; }
-.pcover-rate { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 10px; border-radius: 999px; background: rgba(0,0,0,.5);
-  border: 1px solid var(--hdrline); color: var(--gold);
-  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 700; }
-.pcover-rate .ic { width: 12px; height: 12px; }
-/* Muqovasiz mahsulotda gumbaz silueti fon bo'ladi */
-.pcover-fallback { position: absolute; inset: 0; display: grid; place-items: center;
-  color: var(--gold); opacity: .2; }
-.pcover-fallback svg { width: 92px; height: 92px; }
+/* ── Mahsulot oynasi: ixcham sarlavha ──
+   Ilgari bu yerda ekranning uchdan birini egallagan gumbaz suvrati turardi;
+   endi mahsulot nomi va belgisi bitta qatorga sig'adi, ID maydoni darhol
+   ko'rinadi — ortiqcha surish shart emas. */
+/* Oyna sarlavhasidagi belgi — mahsulot muqovasi yoki chizilgan ikonka */
+.sh-ic {
+  position: relative; overflow: hidden; flex: 0 0 auto;
+  width: 32px; height: 32px; border-radius: var(--r-xs);
+  display: grid; place-items: center;
+  border: 1px solid var(--line2); background: var(--card2); color: var(--acc);
+}
+.sh-ic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sh-ic .ic { width: 20px; height: 20px; }
+.sh-bar { gap: 9px; }
+.sh-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Oyna ostidagi kichik ma'lumot qatori: valyuta turi, hudud yoki holat */
+.pmeta { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 10px; }
+.pmeta-t { font-size: 12px; color: var(--mut2); }
+
+.phead-ic {
+  position: relative; overflow: hidden; flex: 0 0 auto;
+  width: 46px; height: 46px; border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  border: 1px solid var(--line2); background: var(--card2); color: var(--acc);
+}
+.sh-ic[data-glaze="1"], .phead-ic[data-glaze="1"] { color: var(--clay); background: linear-gradient(160deg, var(--claysoft), transparent 70%), var(--card2); }
+.sh-ic[data-glaze="2"], .phead-ic[data-glaze="2"] { color: var(--gold); background: linear-gradient(160deg, var(--goldsoft), transparent 70%), var(--card2); }
+.sh-ic[data-glaze="3"], .phead-ic[data-glaze="3"] { color: var(--ok);   background: linear-gradient(160deg, var(--oksoft), transparent 70%), var(--card2); }
+.sh-ic[data-glaze="0"], .phead-ic[data-glaze="0"] { background: linear-gradient(160deg, var(--accsoft), transparent 70%), var(--card2); }
+.phead-ic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.phead-b { flex: 1; min-width: 0; }
+.phead-t { display: block; font-size: 15.5px; font-weight: 800; letter-spacing: -.025em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phead-s { display: block; font-size: 11.5px; color: var(--mut); margin-top: 2px; }
+.phead-reg {
+  flex: 0 0 auto; font-size: 9px; font-weight: 800; letter-spacing: .07em;
+  padding: 4px 8px; border-radius: var(--r-xs);
+  border: 1px solid var(--line2); background: var(--bg2); color: var(--mut2);
+}
+
+/* Saqlangan ID'lar — tarixdan olingan, bir bosishda maydonga tushadi */
+.saved { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.saved-k { font-size: 10px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--mut); }
+.chip {
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; font-weight: 600;
+  padding: 5px 9px; border-radius: var(--r-xs);
+  border: 1px solid var(--line2); background: var(--card2); color: var(--txt2);
+}
+.chip:active { border-color: var(--acc); color: var(--acc); }
+
+/* Yig'iladigan bo'lim — promokod va izoh doim ochiq turishi shart emas */
+.fold { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 11px; }
+.fold > summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--mut2);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary .ic { width: 14px; height: 14px; color: var(--mut); }
+.fold > summary span { flex: 1; }
+.fold[open] > summary .ic:last-child { transform: rotate(90deg); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    25. Reyting: podium va ro'yxat
@@ -1189,3 +1209,20 @@ select.input { background-image: none; }
 .ask-s { font-size: 12.5px; color: var(--mut2); line-height: 1.5; margin-top: 6px; }
 .ask .input { margin-top: 11px; }
 .ask-a { display: flex; gap: 8px; margin-top: 14px; }
+
+/* ─────────────────── 28. Harakatni kamaytirish ───────────────────
+   Profildagi kalit yoki tizimning "reduce motion" sozlamasi animatsiyalarni
+   o'chiradi: eski telefonlarda ro'yxatlarni surish sezilarli tezlashadi. */
+
+[data-anim="off"] *, [data-anim="off"] *::before, [data-anim="off"] *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

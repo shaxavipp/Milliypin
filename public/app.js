@@ -13,7 +13,7 @@
   const S = {
     tab: "home", config: null, catalog: [], me: null, reviews: null, stats: null,
     promos: [], pending: null, timerId: 0,
-    query: "", group: "all", orderFilter: "all", myPromo: "", openFaq: -1
+    query: "", group: "all", orderFilter: "all", orderTab: "ord", myPromo: "", openFaq: -1
   };
   window.MP = S;
 
@@ -111,7 +111,13 @@
   let sheetBack = null;
   window.mpSetSheetBack = fn => { sheetBack = typeof fn === "function" ? fn : null; };
 
-  function openSheet(title, html, cb) {
+  // opts.icon berilsa sarlavha yonida mahsulot belgisi ko'rinadi — shunda
+  // nomni oyna ichida takror yozish shart emas.
+  function openSheet(title, html, cb, opts) {
+    const ic = el("sheetIcon");
+    ic.innerHTML = (opts && opts.icon) || "";
+    ic.hidden = !(opts && opts.icon);
+    ic.setAttribute("data-glaze", (opts && opts.glaze) || "0");
     el("sheetTitle").textContent = title || "";
     el("sheetBody").innerHTML = html;
     el("sheetWrap").hidden = false;
@@ -187,6 +193,21 @@
 
   /* ══════════ Mavzu va til ══════════ */
 
+  // Animatsiyani kamaytirish — eski telefonlarda ilova sezilarli tezlashadi.
+  // Tanlov localStorage'da saqlanadi, tizimning "reduce motion" sozlamasi esa
+  // CSS darajasida alohida hurmat qilinadi.
+  function animOff() {
+    try { return localStorage.getItem("mp_anim") === "off"; } catch (e) { return false; }
+  }
+  function applyAnim() {
+    document.documentElement.setAttribute("data-anim", animOff() ? "off" : "on");
+  }
+  function toggleAnim() {
+    const next = animOff() ? "on" : "off";
+    try { localStorage.setItem("mp_anim", next); } catch (e) {}
+    applyAnim(); haptic(); render();
+  }
+
   function applyTheme(mode) {
     document.documentElement.setAttribute("data-theme", mode);
     try { localStorage.setItem("mp_theme", mode); } catch (e) {}
@@ -235,7 +256,6 @@
 
   function tile(it) {
     const tag = tileTag(it);
-    const rate = Number(it.rating) || 5;
     const cover = it.cover || it.image;
     return `<button class="tile ${it.maint ? "maint" : ""} ${cover ? "has-cover" : ""}"
       data-item="${esc(it.id)}" data-glaze="${glazeOf(it.group || it.id)}">
@@ -246,7 +266,6 @@
         ${it.region ? `<span class="tile-region">${esc(it.region)}</span>` : ""}
         ${tag && !it.maint ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
         ${it.maint ? `<span class="tile-maint">${t("maint")}</span>` : ""}
-        <span class="tile-rate">${ICO("star", 9)}${rate % 1 ? rate.toFixed(1) : rate}</span>
       </span>
       <span class="tile-body">
         <span class="tile-n">${esc(pick(it.title))}</span>
@@ -283,28 +302,12 @@
   function viewHome() {
     const notice = S.config && pick(S.config.notice);
     const st = S.stats;
-    const top = S.catalog.filter(i => !i.maint).slice(0, 8);
+    const top = S.catalog.filter(i => !i.maint).slice(0, 6);
 
     return `
       ${balanceCard()}
 
       ${notice ? `<div class="notice">${ICO("info", 15)}<span>${esc(notice)}</span></div>` : ""}
-
-      <section class="banner">
-        <div class="banner-in">
-          <span class="banner-mark"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
-          <div>
-            <div class="banner-t">${t("banner.t")}</div>
-            <div class="banner-s">${t("banner.s")}</div>
-            <div class="banner-row">
-              <span class="banner-chip">${t("banner.c1")}</span>
-              <span class="banner-chip">${t("banner.c2")}</span>
-              <span class="banner-chip">${t("banner.c3")}</span>
-            </div>
-          </div>
-        </div>
-        <span class="banner-arcade" aria-hidden="true"></span>
-      </section>
 
       ${sect(t("home.popular"), `<button class="more" data-go="catalog">${t("home.all")}</button>`, "palak")}
       <div class="grid">${top.map(tile).join("")}</div>
@@ -313,11 +316,10 @@
       <div class="stats">
         <div class="stat"><div class="stat-v">${st ? money(st.users) : "—"}</div><div class="stat-k">${t("home.statUsers")}</div></div>
         <div class="stat"><div class="stat-v">${st ? money(st.orders) : "—"}</div><div class="stat-k">${t("home.statOrders")}</div></div>
-        <div class="stat"><div class="stat-v">24/7</div><div class="stat-k">${t("home.trust3")}</div></div>
+        <div class="stat"><div class="stat-v">24/7</div><div class="stat-k">${t("profile.support")}</div></div>
       </div>
 
-      ${sect(t("lb.title"), "", "palak")}
-      <button class="wide" data-act="leaders">
+      <button class="wide" data-act="leaders" style="margin-top:14px">
         <span class="wide-ic">${ICO("palak", 19)}</span>
         <span class="wide-b">
           <span class="wide-t">${t("lb.title")}</span>
@@ -440,6 +442,28 @@
   function viewOrders() {
     const all = (S.me && S.me.orders) || [];
     const pays = (S.me && S.me.payments) || [];
+
+    // Ikki bo'lim: buyurtmalar va moliya (to'ldirishlar). Ilgari ikkalasi
+    // bir ustunda ustma-ust turardi va to'lovlarni topish uchun uzoq surish
+    // kerak bo'lardi.
+    const seg = `<div class="seg seg--w">
+      <button class="${S.orderTab === "pay" ? "" : "on"}" data-otab="ord">${t("orders.tab")}</button>
+      <button class="${S.orderTab === "pay" ? "on" : ""}" data-otab="pay">${t("orders.payments")}</button>
+    </div>`;
+
+    if (S.orderTab === "pay") {
+      return seg + (pays.length ? `<div class="rows">
+        ${pays.map(p => `<div class="row">
+          <span class="row-ic">${ICO("card", 19)}</span>
+          <span class="row-b">
+            <span class="row-t price">${som(p.amount)}</span>
+            <span class="row-s">${esc(p.cardType || "")} · ${dt(p.ts)}</span>
+          </span>
+          <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
+        </div>`).join("")}</div>`
+        : empty("card", t("orders.noPay")));
+    }
+
     const f = S.orderFilter;
     const orders = f === "all" ? all
       : f === "open" ? all.filter(o => o.status === "new" || o.status === "processing")
@@ -449,41 +473,53 @@
       ${OFILTER.map(x => `<button class="pill ${x.id === f ? "on" : ""}" data-of="${x.id}">${t(x.key)}</button>`).join("")}
     </div>` : "";
 
-    const body = orders.length ? orders.map(o => `
-      <div class="ocard">
-        <div class="oc-top">
-          <span class="oc-n">${ICO(o.itemIcon || "gift", 16)}<span>#${o.seq} ${esc(o.itemTitle)}</span></span>
+    // Ixcham qator: bosilganda to'liq ma'lumot oynasi ochiladi.
+    const body = orders.length ? `<div class="rows">${orders.map(o => `
+      <button class="row" data-odet="${esc(o.id)}">
+        <span class="row-ic">${ICO(o.itemIcon || "gift", 19)}</span>
+        <span class="row-b">
+          <span class="row-t">${esc(o.itemTitle)}</span>
+          <span class="row-s">${esc(o.tierLabel)} · ${dt(o.ts)}</span>
+        </span>
+        <span class="row-e">
+          <span class="row-am price">−${money(o.total)}</span>
           <span class="tag tag--${esc(o.status)}">${t("st." + o.status)}</span>
-        </div>
-        <div class="oc-b">
-          ${esc(o.tierLabel)}${o.qty > 1 ? " × " + o.qty : ""} · <b class="price">${som(o.total)}</b>
-          <div><span class="oc-target" data-copy="${esc(o.target)}">${esc(o.target)}</span></div>
-        </div>
-        <div class="oc-m">
-          <span>${ICO("clock", 12)}${dt(o.ts)}</span>
-          ${o.discount ? `<span>${ICO("tag", 12)}−${som(o.discount)}</span>` : ""}
-          ${o.cashback ? `<span>${ICO("gift", 12)}+${som(o.cashback)}</span>` : ""}
-        </div>
-        <div class="oc-acts">
-          ${o.canReview ? `<button class="btn btn--line btn-sm" data-review="${esc(o.id)}">${ICO("star", 14)}${t("orders.review")}</button>` : ""}
-          <button class="btn btn--line btn-sm" data-repeat="${esc(o.id)}">${ICO("refresh", 14)}${t("orders.repeat")}</button>
-        </div>
-      </div>`).join("")
+        </span>
+      </button>`).join("")}</div>`
       : empty("scroll", f === "all" ? t("orders.empty") : t("orders.emptyFilter"),
               f === "all" ? t("orders.emptySub") : "");
 
-    const payList = pays.length ? sect(t("orders.payments"), "", "card") + `<div class="rows">
-      ${pays.map(p => `<div class="row">
-        <span class="row-ic">${ICO("card", 19)}</span>
-        <span class="row-b">
-          <span class="row-t price">${som(p.amount)}</span>
-          <span class="row-s">${esc(p.cardType || "")} · ${dt(p.ts)}</span>
-        </span>
-        <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
-      </div>`).join("")}</div>` : "";
+    return seg + filterBar + body;
+  }
 
-    return sect(t("orders.title"), "", "scroll").replace('class="sect"', 'class="sect sect--first"') +
-      filterBar + body + payList;
+  // Buyurtma tafsiloti: raqam, ma'lumot, narx, holat va sana — jadval qatorlarida,
+  // ostida esa amallar (baholash, qayta buyurtma, ID nusxasi).
+  function openOrder(id) {
+    const o = ((S.me && S.me.orders) || []).find(x => x.id === id);
+    if (!o) return;
+    const row = (k, v, cls) => `<div class="dl-r"><span>${k}</span><b class="${cls || ""}">${v}</b></div>`;
+    openSheet("#" + o.seq + " · " + o.itemTitle, `
+      <div class="pmeta">
+        <span class="pmeta-t">${esc(o.tierLabel)}${o.qty > 1 ? " × " + o.qty : ""}</span>
+        <span class="tag tag--${esc(o.status)}">${t("st." + o.status)}</span>
+      </div>
+
+      <div class="dl">
+        ${row(t("orders.num"), "#" + o.seq)}
+        ${row(t("orders.target"), `<span class="oc-target" data-copy="${esc(o.target)}">${esc(o.target)}</span>`)}
+        ${row(t("prod.total"), som(o.total), "price")}
+        ${o.discount ? row(t("prod.discount"), "−" + som(o.discount), "price") : ""}
+        ${o.cashback ? row(t("orders.cashback"), "+" + som(o.cashback), "price") : ""}
+        ${row(t("orders.date"), dt(o.ts))}
+        ${o.comment ? row(t("prod.comment"), esc(o.comment)) : ""}
+        ${o.note ? row(t("orders.note"), esc(o.note)) : ""}
+        ${o.cancelReason ? row(t("orders.reason"), esc(o.cancelReason)) : ""}
+      </div>
+
+      <div class="acts" style="margin-top:13px">
+        ${o.canReview ? `<button class="btn btn--line btn-1" data-review="${esc(o.id)}">${ICO("star", 14)}${t("orders.review")}</button>` : ""}
+        <button class="btn btn--acc btn-1" data-repeat="${esc(o.id)}">${ICO("refresh", 14)}${t("orders.repeat")}</button>
+      </div>`, null, { icon: ICO(o.itemIcon || "gift", 20) });
   }
 
   /* ══════════ Ko'rinish: Profil ══════════ */
@@ -585,6 +621,8 @@
            </span>`)}
         ${svc("megaphone", "err", t("profile.notif"), t("profile.notifSub"),
           `<span class="sw-sm ${notifOn ? "on" : ""}" id="notifSw"><i></i></span>`)}
+        ${svc("flame", "clay", t("profile.anim"), t("profile.animSub"),
+          `<span class="sw-sm ${animOff() ? "" : "on"}" id="animSw"><i></i></span>`)}
       </div>
 
       ${c.channelUrl || c.reviewsUrl ? `<div class="menu">
@@ -655,6 +693,17 @@
     return { main: title, sub: group };
   }
 
+  // Shu mahsulot uchun oxirgi 3 ta betakror ID (eng yangisi birinchi).
+  function savedTargets(itemId) {
+    const out = [];
+    ((S.me && S.me.orders) || []).forEach(o => {
+      if (o.itemId !== itemId) return;
+      const v = String(o.target || "").trim();
+      if (v && out.indexOf(v) === -1 && out.length < 3) out.push(v);
+    });
+    return out;
+  }
+
   const O = { item: null, tierId: "", promo: "", discount: 0 };
   const curTier = () => (O.item.tiers || []).find(x => x.id === O.tierId) || O.item.tiers[0];
   const subtotal = () => Number(curTier().price) || 0;
@@ -675,21 +724,22 @@
     const head = headParts(it);
     const cover = it.cover || it.image;
 
+    // Ilgari kiritilgan ID'lar — o'z tarixidan olinadi, har safar qo'lda
+    // yozib o'tirmaslik uchun (raqobatchilarda "saqlangan ID" shunday ishlaydi).
+    const saved = savedTargets(it.id);
+
     openSheet(pick(it.title), `
-      <div class="pcover">
-        <span class="pcover-fallback"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
-        ${cover ? `<img src="${esc(cover)}" alt="" onerror="this.remove()">` : ""}
-        <div class="pcover-in">
-          <div style="min-width:0">
-            <div class="pcover-t">${esc(head.main)}</div>
-            <div class="pcover-s">${esc(head.sub)}</div>
-          </div>
-          <span class="pcover-rate">${ICO("star", 12)}${Number(it.rating) || 5}</span>
-        </div>
-      </div>
+      ${head.sub && head.sub !== head.main || it.region ? `<div class="pmeta">
+        ${head.sub && head.sub !== head.main ? `<span class="pmeta-t">${esc(head.sub)}</span>` : ""}
+        ${it.region ? `<span class="phead-reg">${esc(it.region)}</span>` : ""}
+      </div>` : ""}
 
       <label for="target">${t(f[0])}</label>
       <input class="input" id="target" placeholder="${esc(t(f[1]))}" autocomplete="off" spellcheck="false">
+      ${saved.length ? `<div class="saved" id="savedBox">
+        <span class="saved-k">${t("prod.saved")}</span>
+        ${saved.map(v => `<button class="chip" data-fill="${esc(v)}">${esc(v)}</button>`).join("")}
+      </div>` : ""}
       ${note ? `<div class="hint">${ICO("info", 13)}<span>${esc(note)}</span></div>` : ""}
 
       <div class="lbl">${t("prod.choose")}</div>
@@ -704,16 +754,21 @@
         </button>`).join("")}
       </div>
 
-      <label for="promo">${t("prod.promo")}</label>
-      <div class="inline">
-        <input class="input" id="promo" placeholder="MILLIY10" autocomplete="off"
-               value="${esc(S.myPromo)}" style="text-transform:uppercase">
-        <button class="btn btn--line" id="promoBtn">${t("prod.promoApply")}</button>
-      </div>
-      <div id="promoMsg"></div>
+      <details class="fold" ${S.myPromo ? "open" : ""}>
+        <summary>${ICO("tag", 14)}<span>${t("prod.promo")}</span>${ICO("chevron", 14)}</summary>
+        <div class="inline" style="margin-top:9px">
+          <input class="input" id="promo" placeholder="MILLIY10" autocomplete="off"
+                 value="${esc(S.myPromo)}" style="text-transform:uppercase">
+          <button class="btn btn--line" id="promoBtn">${t("prod.promoApply")}</button>
+        </div>
+        <div id="promoMsg"></div>
+      </details>
 
-      <label for="comment">${t("prod.comment")}</label>
-      <textarea class="textarea" id="comment" placeholder="${esc(t("prod.commentPh"))}"></textarea>
+      <details class="fold">
+        <summary>${ICO("scroll", 14)}<span>${t("prod.comment")}</span>${ICO("chevron", 14)}</summary>
+        <textarea class="textarea" id="comment" placeholder="${esc(t("prod.commentPh"))}"
+                  style="margin-top:9px"></textarea>
+      </details>
 
       <div class="calc">
         <div class="calc-r"><span>${t("prod.subtotal")}</span><b class="price" id="cSub"></b></div>
@@ -721,7 +776,11 @@
         <div class="calc-r calc-r--total"><span>${t("prod.total")}</span><b class="price" id="cTot"></b></div>
       </div>
 
-      <div class="buybar" id="buyBox"></div>`);
+      <div class="buybar" id="buyBox"></div>`, null, {
+      icon: (cover ? `<img src="${esc(cover)}" alt="" onerror="this.remove()">` : "") +
+            (ICO(it.icon, 20) || ICO("gift", 20)),
+      glaze: glazeOf(it.group || it.id)
+    });
 
     el("tierBox").addEventListener("click", e => {
       const b = e.target.closest("[data-tier]");
@@ -732,6 +791,13 @@
       if (O.promo) applyPromo(true); else refreshCalc();
     });
     el("promoBtn").onclick = applyPromo;
+    const sb = el("savedBox");
+    if (sb) sb.addEventListener("click", e => {
+      const c = e.target.closest("[data-fill]");
+      if (!c) return;
+      el("target").value = c.getAttribute("data-fill");
+      haptic();
+    });
     if (prefill.target) el("target").value = prefill.target;
     if (S.myPromo) applyPromo(true); else refreshCalc();
   }
@@ -1280,6 +1346,7 @@
     }
 
     if (e.target.closest("#notifSw")) return toggleNotif();
+    if (e.target.closest("#animSw")) return toggleAnim();
 
     const f = e.target.closest("[data-f]");
     if (f) { S.group = f.getAttribute("data-f"); haptic(); return render(); }
@@ -1296,11 +1363,21 @@
     const of = e.target.closest("[data-of]");
     if (of) { S.orderFilter = of.getAttribute("data-of"); haptic(); return render(); }
 
+    const otab = e.target.closest("[data-otab]");
+    if (otab) { S.orderTab = otab.getAttribute("data-otab"); haptic(); return render(); }
+
+    const odet = e.target.closest("[data-odet]");
+    if (odet) return openOrder(odet.getAttribute("data-odet"));
+
     const rep = e.target.closest("[data-repeat]");
     if (rep) return repeatOrder(rep.getAttribute("data-repeat"));
 
     const rev = e.target.closest("[data-review]");
     if (rev) return openReview(rev.getAttribute("data-review"));
+
+    // Tafsilot oynasidagi ID'ni nusxalash (sheet ichida ham ishlashi kerak)
+    const cps = e.target.closest(".sh-body [data-copy]");
+    if (cps) { const v = cps.getAttribute("data-copy"); if (v) copy(v); return; }
 
     const promo = e.target.closest("[data-promo]");
     if (promo) {
@@ -1351,6 +1428,7 @@
     let saved = null;
     try { saved = localStorage.getItem("mp_theme"); } catch (e) {}
     applyTheme(saved || "dark");
+    applyAnim();
     el("langBtn").textContent = window.I18N.lang.toUpperCase();
     el("sheetX").innerHTML = ICO("x", 14);
     document.documentElement.lang = window.I18N.lang;
