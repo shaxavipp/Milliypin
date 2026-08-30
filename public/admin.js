@@ -325,8 +325,15 @@
         });
         if (note === null) return;
       }
-      if (action === "done" && !(await ask("Buyurtma bajarildi deb belgilansinmi?",
-        { yes: "Bajarildi", danger: false }))) return;
+      if (action === "done") {
+        // Izoh mijozga xabar bilan birga boradi: kod, havola yoki qisqa tushuntirish.
+        note = await askText("Buyurtma bajarildimi?", {
+          text: "Izoh yozsangiz mijozga xabar bilan birga yuboriladi (ixtiyoriy).",
+          placeholder: "Masalan: kod 4821 — 24 soat amal qiladi",
+          no: "Orqaga", yes: "Bajarildi", danger: false
+        });
+        if (note === null) return;
+      }
       b.disabled = true;
       try {
         await api("/api/admin/order", { body: { id: b.getAttribute("data-id"), action, note } });
@@ -445,6 +452,7 @@
         </div>
         <div class="acts">
           <button class="btn btn--line btn-sm" data-hist="${esc(u.id)}">${ICO("clock", 14)}Tarix</button>
+          <button class="btn btn--line btn-sm" data-msg="${esc(u.id)}">${ICO("send", 14)}Xabar</button>
           <button class="btn btn--line btn-sm" data-block="${esc(u.id)}" data-on="${u.blocked ? "0" : "1"}">
             ${u.blocked ? ICO("eye", 14) + "Ochish" : ICO("lock", 14) + "Bloklash"}</button>
         </div>
@@ -474,6 +482,21 @@
             body: { id: blk.getAttribute("data-block"), action: "block", blocked: blk.getAttribute("data-on") === "1" }
           });
           findUser(q, boxId);
+        } catch (err) { toast(errText(err), "err"); }
+        return;
+      }
+      // Shaxsiy xabar — "ID noto'g'ri", "buyurtmangiz tayyor" kabi javoblar uchun.
+      const m = e.target.closest("[data-msg]");
+      if (m) {
+        const text = await askText("Mijozga xabar", {
+          text: "Xabar bot orqali shaxsiy chatga boradi.",
+          placeholder: "Masalan: ID'ni tekshirib qayta yuboring", yes: "Yuborish"
+        });
+        if (text === null) return;
+        if (!text) return toast("Matn kiriting", "err");
+        try {
+          await api("/api/admin/user", { body: { id: m.getAttribute("data-msg"), action: "message", text } });
+          toast("Yuborildi", "ok");
         } catch (err) { toast(errText(err), "err"); }
         return;
       }

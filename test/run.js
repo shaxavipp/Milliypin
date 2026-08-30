@@ -527,6 +527,27 @@ async function main() {
     assert.strictEqual(after, before + 70000);
   });
 
+  group("Admin — mijozga xabar va izoh");
+  await it("bo'sh xabar rad etiladi", async () => {
+    const r = await call("/api/admin/user", { as: ADMIN, body: { id: String(USER_ID), action: "message", text: "  " } });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.error, "text_required");
+  });
+  await it("mijozga xabar yuboriladi", async () => {
+    const r = await call("/api/admin/user", { as: ADMIN, body: { id: String(USER_ID), action: "message", text: "Salom" } });
+    assert.strictEqual(r.status, 200);
+  });
+  await it("bajarilgan buyurtmaning izohi saqlanadi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const id = r.data.order.id;
+    await call("/api/admin/order", { as: ADMIN, body: { id, action: "done", note: "kod 4821" } });
+    assert.strictEqual(app.store.orderGet(app.db, id).note, "kod 4821");
+  });
+  await it("mijoz bo'lmagan ID rad etiladi", async () => {
+    const r = await call("/api/admin/user", { as: ADMIN, body: { id: "999999999", action: "message", text: "x" } });
+    assert.strictEqual(r.status, 404);
+  });
+
   group("Admin qidiruvi");
   await it("buyurtma raqami bo'yicha topiladi", async () => {
     const all = (await call("/api/admin/orders?status=all", { as: ADMIN })).data;

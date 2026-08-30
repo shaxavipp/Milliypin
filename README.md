@@ -75,9 +75,9 @@ Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
 | Bo'lim | Nima qilinadi |
 |---|---|
 | **Moliya** | Kutayotgan to'lovlar va ochiq buyurtmalar bir bosishda tasdiqlanadi; mijozni ID/@username bo'yicha topib balansiga qo'shish/yechish, bloklash va to'liq tarixini ko'rish |
-| **Buyurtmalar** | Holat filtri va #raqam / @username / ID / mahsulot bo'yicha qidiruv; "Olindi / Bajarildi / Bekor" (bekorda pul avtomatik qaytadi) |
+| **Buyurtmalar** | Holat filtri va #raqam / @username / ID / mahsulot bo'yicha qidiruv; "Olindi / Bajarildi / Bekor". Bajarilganda ixtiyoriy izoh (kod, havola) mijozga xabar bilan boradi; bekor qilinganda sabab yoziladi va pul avtomatik qaytadi |
 | **To'lovlar** | Holat filtri va ID / @username / summa bo'yicha qidiruv (qidirilganda filtr o'zi "Hammasi" ga o'tadi) |
-| **Mijozlar** | Qidiruv, balans +/−, bloklash, tarix |
+| **Mijozlar** | Qidiruv, balans +/−, bloklash, tarix va mijozga shaxsiy xabar yuborish |
 | **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
 | **Promokodlar** | Foiz yoki so'mda, limit, min. buyurtma va mijozga ko'rinadigan izoh bilan |
 | **Sharhlar** | Mijoz sharhlarini ko'rish va nomaqbulini o'chirish |
@@ -243,7 +243,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (10 bo'lim)
-test/run.js      60 ta integratsion test — npm test
+test/run.js      64 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan

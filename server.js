@@ -385,8 +385,11 @@ async function notifyOrder(o) {
   const mine = {
     new: "🧾 Buyurtmangiz #" + o.seq + " qabul qilindi. Tez orada bajariladi.",
     processing: "⏳ Buyurtma #" + o.seq + " bajarilmoqda.",
-    done: "✅ Buyurtma #" + o.seq + " muvaffaqiyatli bajarildi. Xaridingiz uchun rahmat!",
-    canceled: "❌ Buyurtma #" + o.seq + " bekor qilindi." + (o.refunded ? " " + MONEY(o.total) + " balansingizga qaytarildi." : "")
+    done: "✅ Buyurtma #" + o.seq + " muvaffaqiyatli bajarildi. Xaridingiz uchun rahmat!" +
+      (o.note ? "\n\n" + esc(o.note) : ""),
+    canceled: "❌ Buyurtma #" + o.seq + " bekor qilindi." +
+      (o.refunded ? " " + MONEY(o.total) + " balansingizga qaytarildi." : "") +
+      (o.cancelReason ? "\n\nSabab: " + esc(o.cancelReason) : "")
   }[o.status];
   if (mine) tgSend(o.uid, mine);
 }
@@ -1057,6 +1060,13 @@ route("POST", "/api/admin/user", (req, res) => {
     } else if (action === "block") {
       target.blocked = !!b.blocked;
       store.userPut(db, target);
+    } else if (action === "message") {
+      // Adminning mijozga shaxsiy xabari — "ID noto'g'ri", "buyurtma tayyor"
+      // kabi holatlar uchun. Bildirishnoma o'chirilgan bo'lsa ham yetkaziladi:
+      // bu tarqatma emas, aynan shu mijozga qaratilgan javob.
+      const text = str(b.text, 600);
+      if (!text) return send(res, 400, { error: "text_required" });
+      tgSend(target.id, "💬 <b>Qo'llab-quvvatlash</b>\n\n" + esc(text), null, true);
     } else return send(res, 400, { error: "bad_action" });
     send(res, 200, { ok: true, user: store.userGet(db, target.id) });
   });
@@ -1276,7 +1286,9 @@ async function handleCallback(cq, trusted) {
     }
 
     const map = { proc: "processing", done: "done", cancelY: "cancel" };
-    const r = applyOrderAction(o, map[act], act === "cancelY" ? "Admin bekor qildi" : "");
+    // Telegramdagi tugmada sabab yozish imkoni yo'q — mijozga quruq "Admin bekor
+    // qildi" degan izoh borgandan ko'ra, hech qanday sabab bormagani yaxshi.
+    const r = applyOrderAction(o, map[act], "");
     if (r.error) return reply(r.error === "already_done"
       ? "Bajarilgan buyurtmani bekor qilib bo'lmaydi." : "Bu holatda amal bajarilmaydi.", true);
     return reply(act === "done" ? "✅ Bajarildi" : act === "cancelY" ? "❌ Bekor qilindi" : "⏳ Olindi");
