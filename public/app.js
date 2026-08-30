@@ -241,8 +241,12 @@
   const sect = (title, right, icon) =>
     `<div class="sect">${icon ? ICO(icon, 15) : ""}<h3>${title}</h3>${right || ""}</div>`;
 
-  const empty = (icon, title, sub) =>
-    `<div class="empty">${ICO(icon, 34)}<div class="empty-t">${title}</div>${sub ? `<div class="empty-s">${sub}</div>` : ""}</div>`;
+  // Bo'sh holat — faqat "hech narsa yo'q" demay, chiqish yo'lini ham ko'rsatadi.
+  const empty = (icon, title, sub, act) =>
+    `<div class="empty">${ICO(icon, 34)}<div class="empty-t">${title}</div>` +
+    (sub ? `<div class="empty-s">${sub}</div>` : "") +
+    (act ? `<button class="btn btn--acc" style="margin-top:14px" ${act.attr}>${act.icon ? ICO(act.icon, 15) : ""}${act.label}</button>` : "") +
+    `</div>`;
 
   const minPrice = it => {
     const p = (it.tiers || []).map(x => Number(x.price) || 0).filter(x => x > 0);
@@ -367,8 +371,8 @@
     if (!r || !r.count) return "";
     const top = (r.items || []).find(x => x.text) || r.items[0] || {};
     const full = Math.round(r.average);
-    return sect(t("home.reviews"), "", "star") + `
-      <div class="ratecard">
+    return sect(t("home.reviews"), `<button class="more" data-act="reviews">${t("home.all")}</button>`, "star") + `
+      <button class="ratecard" data-act="reviews">
         <div class="rate-big">
           <div class="rate-v">${r.average.toFixed(1)}</div>
           <div class="rate-stars">
@@ -383,7 +387,36 @@
             <span class="rate-n">${esc(top.name || "—")}</span>
           </div>
         </div>
-      </div>`;
+        <span class="rate-go">${ICO("chevron", 15)}</span>
+      </button>`;
+  }
+
+  // Barcha sharhlar oynasi — mijoz do'kon haqidagi fikrlarni to'liq o'qiy oladi.
+  function openReviews() {
+    const r = S.reviews || { count: 0, average: 0, items: [] };
+    const stars = n => `<span class="stars">${[1, 2, 3, 4, 5]
+      .map(i => `<span class="${i <= n ? "" : "off"}">${ICO("star", 11)}</span>`).join("")}</span>`;
+    openSheet(t("home.reviews"), r.count ? `
+      <div class="revsum">
+        <div class="rate-v">${r.average.toFixed(1)}</div>
+        <div>
+          ${stars(Math.round(r.average))}
+          <div class="tiny mut" style="margin-top:3px">${money(r.count)} ${t("home.reviewsCount")}</div>
+        </div>
+      </div>
+      <div class="revlist">
+        ${(r.items || []).map(x => `<div class="revitem">
+          <div class="revitem-h">
+            <span class="rate-av">${esc((x.name || "M").trim().charAt(0).toUpperCase())}</span>
+            <span class="revitem-n">${esc(x.name || "—")}</span>
+            ${stars(x.stars)}
+          </div>
+          ${x.text ? `<div class="revitem-t">${esc(x.text)}</div>` : ""}
+          ${x.itemTitle ? `<div class="revitem-p">${ICO("box", 12)}${esc(x.itemTitle)}</div>` : ""}
+        </div>`).join("")}
+      </div>`
+      : empty("star", t("home.noReviews"), t("home.noReviewsSub")),
+      null, { icon: ICO("star", 20), glaze: 2 });
   }
 
   /* ══════════ Ko'rinish: Katalog ══════════ */
@@ -396,7 +429,8 @@
     if (q) shown = shown.filter(i =>
       pick(i.title).toLowerCase().includes(q) || String(i.group || "").toLowerCase().includes(q));
     return shown.length ? `<div class="grid">${shown.map(tile).join("")}</div>`
-                        : empty("search", t("cat.nores"));
+                        : empty("search", t("cat.nores"), t("cat.noresSub"),
+                            { attr: 'data-clearq="1"', icon: "x", label: t("cat.clear") });
   }
 
   function viewCatalog() {
@@ -518,7 +552,8 @@
           </span>
           <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
         </div>`).join("")}</div>`
-        : empty("card", t("orders.noPay")));
+        : empty("card", t("orders.noPay"), t("orders.noPaySub"),
+            { attr: 'data-go="topup"', icon: "wallet", label: t("home.topup") }));
     }
 
     const f = S.orderFilter;
@@ -544,7 +579,9 @@
         </span>
       </button>`).join("")}</div>`
       : empty("scroll", f === "all" ? t("orders.empty") : t("orders.emptyFilter"),
-              f === "all" ? t("orders.emptySub") : "");
+              f === "all" ? t("orders.emptySub") : "",
+              f === "all" ? { attr: 'data-go="catalog"', icon: "pad", label: t("orders.toCatalog") }
+                          : { attr: 'data-of="all"', icon: "refresh", label: t("orders.fAll") });
 
     return seg + filterBar + body;
   }
@@ -554,6 +591,7 @@
   function openOrder(id) {
     const o = ((S.me && S.me.orders) || []).find(x => x.id === id);
     if (!o) return;
+    const c = S.config || {};
     const row = (k, v, cls) => `<div class="dl-r"><span>${k}</span><b class="${cls || ""}">${v}</b></div>`;
     openSheet("#" + o.seq + " · " + o.itemTitle, `
       <div class="pmeta">
@@ -576,7 +614,13 @@
       <div class="acts" style="margin-top:13px">
         ${o.canReview ? `<button class="btn btn--line btn-1" data-review="${esc(o.id)}">${ICO("star", 14)}${t("orders.review")}</button>` : ""}
         <button class="btn btn--acc btn-1" data-repeat="${esc(o.id)}">${ICO("refresh", 14)}${t("orders.repeat")}</button>
-      </div>`, null, { icon: ICO(o.itemIcon || "gift", 20) });
+      </div>
+      ${o.status === "new" ? `<button class="btn btn--danger btn-w" style="margin-top:9px"
+        data-ocancel="${esc(o.id)}">${ICO("x", 14)}${t("orders.cancel")}</button>
+        <div class="hint" style="margin-top:7px">${ICO("info", 13)}<span>${t("orders.cancelHint")}</span></div>` : ""}
+      ${c.support ? `<button class="btn btn--line btn-w" style="margin-top:9px"
+        data-open="https://t.me/${esc(c.support)}">${ICO("send", 14)}${t("orders.askSupport")}</button>` : ""}`,
+      null, { icon: ICO(o.itemIcon || "gift", 20) });
   }
 
   /* ══════════ Ko'rinish: Profil ══════════ */
@@ -767,7 +811,8 @@
           <button class="btn btn--danger btn-sm" data-unfav="${esc(it.id)}">${ICO("x", 13)}</button>
         </span>
       </div>`).join("")}</div>`
-      : empty("heart", t("fav.empty"), t("fav.emptySub")),
+      : empty("heart", t("fav.empty"), t("fav.emptySub"),
+              { attr: 'data-go="catalog" data-close', icon: "pad", label: t("orders.toCatalog") }),
       null, { icon: ICO("heart", 20), glaze: 1 });
 
     el("sheetBody").addEventListener("click", e => {
@@ -1024,6 +1069,19 @@
 
   // Eski buyurtmani takrorlash: mahsulot va paket oldindan tanlanadi,
   // ma'lumot maydoni ham to'ldiriladi — mijoz faqat tasdiqlaydi.
+  // Mijoz hali ishga olinmagan buyurtmani bekor qiladi — pul darhol qaytadi.
+  async function cancelOrder(id) {
+    if (!(await window.mpConfirm(t("orders.cancelAsk"), { text: t("orders.cancelHint"), yes: t("orders.cancel") }))) return;
+    try {
+      await api("/api/order/cancel", { body: { id } });
+      toast(t("orders.canceled"), "ok");
+      haptic("ok");
+      closeSheet();
+      await loadMe();
+      render();
+    } catch (e) { toast(errText(e), "err"); }
+  }
+
   function repeatOrder(orderId) {
     const o = ((S.me && S.me.orders) || []).find(x => x.id === orderId);
     if (!o) return;
@@ -1562,11 +1620,20 @@
     const otabGo = e.target.closest("[data-otab-go]");
     if (otabGo) { S.orderTab = otabGo.getAttribute("data-otab-go"); return go("orders"); }
 
+    if (e.target.closest("[data-clearq]")) {
+      S.query = "";
+      render();
+      return;
+    }
+
     const otab = e.target.closest("[data-otab]");
     if (otab) { S.orderTab = otab.getAttribute("data-otab"); haptic(); return render(); }
 
     const odet = e.target.closest("[data-odet]");
     if (odet) return openOrder(odet.getAttribute("data-odet"));
+
+    const oc = e.target.closest("[data-ocancel]");
+    if (oc) return cancelOrder(oc.getAttribute("data-ocancel"));
 
     const rep = e.target.closest("[data-repeat]");
     if (rep) return repeatOrder(rep.getAttribute("data-repeat"));
@@ -1601,6 +1668,7 @@
     if (a === "leaders") return openLeaders();
     if (a === "promos") return openPromos();
     if (a === "favs") return openFavs();
+    if (a === "reviews") return openReviews();
     if (a === "howto") return openHowTo();
     if (a === "support") return openLink("https://t.me/" + ((S.config && S.config.support) || ""));
     if (a === "admin") return window.mpOpenAdmin && window.mpOpenAdmin();

@@ -609,6 +609,33 @@ async function main() {
     assert.strictEqual(r.data.review.text, "tahrirlandi");
   });
 
+  group("Mijoz buyurtmani bekor qiladi");
+  await it("yangi buyurtma bekor qilinadi va pul qaytadi", async () => {
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const id = r.data.order.id;
+    const c = await call("/api/order/cancel", { as: USER, body: { id } });
+    assert.strictEqual(c.status, 200);
+    assert.strictEqual(app.store.orderGet(app.db, id).status, "canceled");
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before);
+  });
+  await it("ishga olingan buyurtmani mijoz bekor qila olmaydi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const id = r.data.order.id;
+    await call("/api/admin/order", { as: ADMIN, body: { id, action: "processing" } });
+    const c = await call("/api/order/cancel", { as: USER, body: { id } });
+    assert.strictEqual(c.status, 400);
+    assert.strictEqual(c.data.error, "too_late");
+    await call("/api/admin/order", { as: ADMIN, body: { id, action: "cancel", note: "tozalash" } });
+  });
+  await it("boshqa mijozning buyurtmasi bekor qilinmaydi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const c = await call("/api/order/cancel", { as: FRIEND, body: { id: r.data.order.id } });
+    assert.strictEqual(c.status, 404);
+    await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
+  });
+
   group("Sevimlilar");
   await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
     const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });

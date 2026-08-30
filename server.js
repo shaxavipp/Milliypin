@@ -759,6 +759,25 @@ route("GET", "/api/referral", (req, res) => {
 });
 
 // Bot xabarlarini yoqish/o'chirish (buyurtma holati, keshbek, referal xabarlari)
+// Mijoz o'z buyurtmasini bekor qiladi — faqat hali ishga olinmagan ("yangi")
+// buyurtmani. Admin uni "olindi" deb belgilagach mijoz bekor qila olmaydi,
+// chunki bunda xizmat allaqachon berilayotgan bo'lishi mumkin.
+route("POST", "/api/order/cancel", (req, res) => {
+  const u = requireUser(req, res); if (!u) return;
+  readBody(req, res, b => {
+    const o = store.orderGet(db, str(b.id, 40));
+    if (!o || o.uid !== String(u.id)) return send(res, 404, { error: "not_found" });
+    if (o.status !== "new") return send(res, 400, { error: "too_late", status: o.status });
+    balanceAdd(o.uid, o.total, "refund");
+    o.refunded = true;
+    o.status = "canceled";
+    o.cancelReason = "Mijoz bekor qildi";
+    store.orderPut(db, o);
+    notifyOrder(o);
+    send(res, 200, { ok: true, balance: num((store.userGet(db, o.uid) || {}).balance) });
+  });
+});
+
 // Sevimlilar — mijoz tez-tez oladigan mahsulotlarni belgilab qo'yadi va
 // profilidan bir bosishda ochadi.
 route("POST", "/api/favorite", (req, res) => {

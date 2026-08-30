@@ -1390,3 +1390,24 @@ select.input { background-image: none; }
 }
 .phero-fav.on { color: var(--clay); border-color: var(--claysoft); background: var(--claysoft); }
 .phero-fav:active { transform: scale(.92); }
+
+/* Sharhlar oynasi */
+.rate-go { flex: 0 0 auto; color: var(--mut); display: grid; place-items: center; }
+.revsum { display: flex; align-items: center; gap: 14px; padding: 12px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--card); }
+.revsum .rate-v { font-size: 30px; }
+.stars { display: inline-flex; gap: 2px; color: var(--gold); }
+.stars .off { color: var(--line2); }
+.revlist { display: flex; flex-direction: column; gap: 8px; margin-top: 11px; }
+.revitem { padding: 11px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--inset); }
+.revitem-h { display: flex; align-items: center; gap: 8px; }
+.revitem-n { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.revitem-t { font-size: 12.5px; color: var(--txt); line-height: 1.5; margin-top: 7px; }
+.revitem-p { display: flex; align-items: center; gap: 5px; font-size: 10.5px;
+  color: var(--mut); margin-top: 6px; }
+.revitem-p .ic { width: 12px; height: 12px; }
+
+/* To'ldirilgan yulduz — baho aniq ko'rinsin (bo'shi faqat konturda qoladi) */
+.stars span:not(.off) .ic, .rate-stars span:not(.off) .ic { fill: currentColor; }

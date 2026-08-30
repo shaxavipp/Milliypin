@@ -363,6 +363,7 @@
             ${o.status === "new" ? `<button class="btn btn--line btn-sm" data-ord="processing" data-id="${esc(o.id)}">${ICO("clock", 14)}Olindi</button>` : ""}
             <button class="btn btn--acc btn-sm" data-ord="done" data-id="${esc(o.id)}">${ICO("check", 14)}Bajarildi</button>
             <button class="btn btn--danger btn-sm" data-ord="cancel" data-id="${esc(o.id)}">${ICO("x", 14)}Bekor</button>
+            <button class="btn btn--line btn-sm" data-omsg="${esc(o.uid)}">${ICO("send", 14)}Xabar</button>
           </div>` : ""}
         </div>`).join("")
         : `<div class="empty">${ICO("scroll", 34)}<div class="empty-t">Bo'sh</div></div>`}`);
@@ -386,6 +387,22 @@
 
       const c = e.target.closest("[data-copy]");
       if (c) return window.mpCopy(c.getAttribute("data-copy"));
+
+      // Buyurtma ustida turib mijozga savol berish (ID noto'g'ri bo'lsa va h.k.)
+      const om = e.target.closest("[data-omsg]");
+      if (om) {
+        const text = await askText("Mijozga xabar", {
+          text: "Xabar bot orqali shaxsiy chatga boradi.",
+          placeholder: "Masalan: ID topilmadi, tekshirib yuboring", yes: "Yuborish"
+        });
+        if (text === null) return;
+        if (!text) return toast("Matn kiriting", "err");
+        try {
+          await api("/api/admin/user", { body: { id: om.getAttribute("data-omsg"), action: "message", text } });
+          toast("Yuborildi", "ok");
+        } catch (err) { toast(errText(err), "err"); }
+        return;
+      }
 
       const b = e.target.closest("[data-ord]");
       if (!b) return;
@@ -640,6 +657,7 @@
               <span class="catrow-s">${esc(it.group || "—")} · ${(it.tiers || []).length} paket${it.maint ? " · texnik ish" : ""}</span>
             </span>
             <span class="catrow-a">
+            <button data-ccopy="${i}" title="Nusxa">${ICO("copy", 14)}</button>
               <button data-cup="${i}" title="Yuqoriga">${ICO("back", 14)}</button>
               <button data-cedit="${i}" title="Tahrirlash">${ICO("edit", 14)}</button>
               <button data-ctoggle="${i}" title="Ko'rinish">${ICO(it.active === false ? "eyeoff" : "eye", 14)}</button>
@@ -675,6 +693,18 @@
       };
       let i;
       if ((i = num("cedit")) >= 0) return editItem(i);
+      // Nusxa — o'xshash mahsulotni noldan yozmaslik uchun (narxlar, paketlar
+      // va rasmlar bilan birga ko'chiriladi, keyin nomi tahrirlanadi).
+      if ((i = num("ccopy")) >= 0) {
+        const src = JSON.parse(JSON.stringify(A.catalog[i]));
+        src.id = "it_" + Date.now().toString(36);
+        src.title = { uz: (src.title.uz || "") + " (nusxa)", ru: (src.title.ru || "") + " (копия)" };
+        src.tiers = (src.tiers || []).map((t2, k) => Object.assign({}, t2, { id: "t" + Date.now().toString(36) + k }));
+        A.catalog.splice(i + 1, 0, src);
+        renderCatalog();
+        toast("Nusxa olindi — nomini tahrirlang", "ok");
+        return;
+      }
       if ((i = num("ctoggle")) >= 0) { A.catalog[i].active = A.catalog[i].active === false; return renderCatalog(); }
       if ((i = num("cup")) >= 0) {
         if (i === 0) return;
