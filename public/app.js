@@ -404,8 +404,24 @@
     // Har bir karta turi uchun rekvizit sozlangan bo'lsagina usul faol bo'ladi
     const has = type => cards.some(x => String(x.type).toUpperCase() === type);
 
+    // Yakunlanmagan to'lov bo'lsa — eng ustida ko'rinadi. Ilova yopilib
+    // qaytadan ochilsa ham mijoz kutayotgan to'lovini yo'qotmaydi.
+    const open = (((S.me && S.me.payments) || []).find(p =>
+      p.status === "pending" && Number(p.expiresAt || 0) > Date.now()));
+    const last = ((S.me && S.me.payments) || []).slice(0, 3);
+
     return `
       ${balanceCard(true)}
+
+      ${open ? `<button class="wide wide--warn" data-pay="${esc(open.id)}" style="margin-top:12px">
+        <span class="wide-ic">${ICO("clock", 19)}</span>
+        <span class="wide-b">
+          <span class="wide-t">${open.claimedAt ? t("topup.inCheck") : t("topup.unfinished")}</span>
+          <span class="wide-s price">${som(open.amount)}</span>
+        </span>
+        ${ICO("chevron", 15)}
+      </button>` : ""}
+
       ${sect(t("topup.method"), "", "wallet")}
       <div class="methods">
         ${METHODS.map(m => `<button class="method ${has(m.type) ? "" : "off"}" data-m="${m.id}">
@@ -426,7 +442,19 @@
         ${c.support ? `<button class="menu-i" data-act="support">${ICO("send")}
           <span class="menu-t">${t("topup.help")}</span>
           <span class="menu-v">@${esc(c.support)}${ICO("chevron", 14)}</span></button>` : ""}
-      </div>`;
+      </div>
+
+      ${last.length ? sect(t("topup.recent"), `<button class="more" data-otab-go="pay">${t("home.all")}</button>`, "clock") + `
+      <div class="rows">
+        ${last.map(p => `<div class="row">
+          <span class="row-ic">${ICO("card", 19)}</span>
+          <span class="row-b">
+            <span class="row-t price">${som(p.amount)}</span>
+            <span class="row-s">${esc(p.cardType || "")} · ${dt(p.ts)}</span>
+          </span>
+          <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
+        </div>`).join("")}
+      </div>` : ""}`;
   }
 
   /* ══════════ Ko'rinish: Buyurtmalar ══════════ */
@@ -581,25 +609,11 @@
         <div class="progress"><i style="width:${pct}%"></i></div>
       </div>` : ""}
 
-      ${sect(t("promo.title"), "", "tag")}
-      <div class="promobox">
-        <div class="inline">
-          <input class="input" id="promoIn" placeholder="${esc(t("promo.ph"))}"
-                 value="${esc(S.myPromo)}" autocomplete="off" style="text-transform:uppercase">
-          <button class="btn btn--acc" id="promoSave">${t("promo.check")}</button>
-        </div>
-        <div id="promoMsg"></div>
-        <div class="lbl" style="margin-bottom:0">${t("promo.avail")}</div>
-        <div class="promolist">
-          ${S.promos.length ? S.promos.map(p => `<button class="promoitem" data-promo="${esc(p.code)}">
-            <span style="flex:1;min-width:0">
-              <span class="promo-code">${esc(p.code)}</span>
-              <span class="promo-note">${esc(p.note || (p.type === "fixed" ? som(p.value) : p.value + "%"))}</span>
-            </span>
-            <span class="promo-take">${t("promo.take")}</span>
-          </button>`).join("")
-          : `<div class="tiny mut">${t("promo.none")}</div>`}
-        </div>
+      <div class="menu">
+        ${svc("tag", "gold", t("promo.title"),
+          S.myPromo ? S.myPromo : t("promo.sub"),
+          S.myPromo ? `<span class="tag tag--done">${esc(S.myPromo)}</span>` : "",
+          'data-act="promos"')}
       </div>
 
       <div class="menu">
@@ -1160,12 +1174,33 @@
       <button class="btn btn--line btn-w" style="margin-top:12px" data-close>${t("common.close")}</button>`);
   }
 
+  // Promokod oynasi: kodni tekshirib saqlash va ochiq kodlar ro'yxati.
+  // Ilgari bu blok profil sahifasining o'rtasida turardi — endi u faqat
+  // kerak bo'lganda ochiladi va profil ro'yxati tozaroq ko'rinadi.
   function openPromos() {
-    go("profile");
-    setTimeout(() => {
-      const n = document.querySelector(".promobox");
-      if (n) n.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
+    openSheet(t("promo.title"), `
+      <div class="inline">
+        <input class="input" id="promoIn" placeholder="${esc(t("promo.ph"))}"
+               value="${esc(S.myPromo)}" autocomplete="off" style="text-transform:uppercase">
+        <button class="btn btn--acc" id="promoSave">${t("promo.check")}</button>
+      </div>
+      <div id="promoMsg"></div>
+      <div class="lbl">${t("promo.avail")}</div>
+      <div class="promolist">
+        ${S.promos.length ? S.promos.map(p => `<button class="promoitem" data-promo="${esc(p.code)}">
+          <span style="flex:1;min-width:0">
+            <span class="promo-code">${esc(p.code)}</span>
+            <span class="promo-note">${esc(p.note || (p.type === "fixed" ? som(p.value) : p.value + "%"))}</span>
+          </span>
+          <span class="promo-take">${t("promo.take")}</span>
+        </button>`).join("")
+        : `<div class="tiny mut">${t("promo.none")}</div>`}
+      </div>
+      <div class="hint" style="margin-top:12px">${ICO("info", 13)}<span>${t("promo.hint")}</span></div>`,
+      null, { icon: ICO("tag", 20), glaze: 2 });
+
+    el("promoSave").onclick = savePromo;
+    if (!S.promos.length) loadPromos().then(() => { if (!el("sheetWrap").hidden) openPromos(); });
   }
 
   async function savePromo() {
@@ -1294,8 +1329,6 @@
       const box = el("gridBox");
       if (box) box.innerHTML = catalogGrid();
     });
-    const ps = el("promoSave");
-    if (ps) ps.onclick = savePromo;
   }
 
   function go(tab) {
@@ -1363,6 +1396,15 @@
     const of = e.target.closest("[data-of]");
     if (of) { S.orderFilter = of.getAttribute("data-of"); haptic(); return render(); }
 
+    const pay = e.target.closest("[data-pay]");
+    if (pay) {
+      const p = ((S.me && S.me.payments) || []).find(x => x.id === pay.getAttribute("data-pay"));
+      if (p) { S.pending = p; return showWait(p); }
+    }
+
+    const otabGo = e.target.closest("[data-otab-go]");
+    if (otabGo) { S.orderTab = otabGo.getAttribute("data-otab-go"); return go("orders"); }
+
     const otab = e.target.closest("[data-otab]");
     if (otab) { S.orderTab = otab.getAttribute("data-otab"); haptic(); return render(); }
 
@@ -1385,6 +1427,8 @@
       S.myPromo = code;
       try { localStorage.setItem("mp_promo", code); } catch (e2) {}
       copy(code);
+      toast(t("promo.saved"), "ok");
+      closeSheet();
       return render();
     }
 

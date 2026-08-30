@@ -1210,6 +1210,10 @@ select.input { background-image: none; }
 .ask .input { margin-top: 11px; }
 .ask-a { display: flex; gap: 8px; margin-top: 14px; }
 
+/* Diqqat tortadigan keng tugma — yakunlanmagan to'lov kabi holatlar uchun */
+.wide--warn { border-color: var(--goldsoft); }
+.wide--warn .wide-ic { color: var(--gold); border-color: var(--goldsoft); }
+
 /* ─────────────────── 28. Harakatni kamaytirish ───────────────────
    Profildagi kalit yoki tizimning "reduce motion" sozlamasi animatsiyalarni
    o'chiradi: eski telefonlarda ro'yxatlarni surish sezilarli tezlashadi. */
