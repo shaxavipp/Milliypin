@@ -1,0 +1,14 @@
+{
+  "name": "milliypin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Milliy Pin — Telegram xizmatlari va o'yin donatlari uchun Telegram Mini App (o'zbek milliy uslubida)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

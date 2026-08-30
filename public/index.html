@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0E2A47">
+<title>Milliy Pin — Telegram va o'yin donatlari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+
+<!-- ══════════ Splash: gumbaz + milliy naqsh ══════════ -->
+<div id="splash" class="splash">
+  <div class="splash__ornament">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#F3D08A"/><stop offset="50%" stop-color="#D9A441"/><stop offset="100%" stop-color="#B57F22"/>
+        </linearGradient>
+      </defs>
+      <g fill="none" stroke="url(#gGold)" stroke-width="2.4" stroke-linecap="round">
+        <circle cx="100" cy="100" r="74" stroke-dasharray="6 9" opacity=".55"/>
+        <circle cx="100" cy="100" r="60"/>
+        <!-- 8 qirrali girih yulduzi -->
+        <path d="M100 40 L145 60 L160 100 L145 140 L100 160 L55 140 L40 100 L55 60 Z"/>
+        <path d="M100 55 L131 68 L144 100 L131 132 L100 145 L69 132 L56 100 L69 68 Z" opacity=".7"/>
+        <path d="M100 40 L100 160 M40 100 L160 100 M57 57 L143 143 M143 57 L57 143" opacity=".35"/>
+      </g>
+      <g fill="url(#gGold)">
+        <circle cx="100" cy="100" r="7"/>
+        <circle cx="100" cy="40" r="3.5"/><circle cx="100" cy="160" r="3.5"/>
+        <circle cx="40" cy="100" r="3.5"/><circle cx="160" cy="100" r="3.5"/>
+      </g>
+    </svg>
+  </div>
+  <div class="splash__brand">MILLIY PIN</div>
+  <div class="splash__tag">Telegram xizmatlari va o'yin donatlari</div>
+  <div class="splash__bar"><i></i></div>
+</div>
+
+<!-- ══════════ Ilova ══════════ -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="topbar__pattern" aria-hidden="true"></div>
+    <div class="topbar__row">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+            <path d="M20 4 L32 11 L32 25 L20 36 L8 25 L8 11 Z"/><path d="M20 12 L26 15.5 L26 23 L20 28 L14 23 L14 15.5 Z"/>
+          </g></svg>
+        </span>
+        <span class="brand__text">Milliy&nbsp;Pin</span>
+      </div>
+      <div class="topbar__actions">
+        <button class="chip chip--balance" id="balanceChip" type="button">
+          <span class="chip__ico">💠</span><span id="balanceValue">0</span><span class="chip__cur">so'm</span>
+        </button>
+        <button class="icobtn" id="langBtn" type="button" title="Til">UZ</button>
+        <button class="icobtn" id="themeBtn" type="button" title="Rejim">🌙</button>
+      </div>
+    </div>
+    <div class="topbar__wave" aria-hidden="true">
+      <svg viewBox="0 0 400 22" preserveAspectRatio="none">
+        <path d="M0 22 Q 25 0 50 22 T 100 22 T 150 22 T 200 22 T 250 22 T 300 22 T 350 22 T 400 22 V22 H0Z" fill="currentColor"/>
+      </svg>
+    </div>
+  </header>
+
+  <main id="view" class="view"><!-- app.js render qiladi --></main>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-active" data-tab="home"><span class="tab__ico">🏠</span><span class="tab__lbl" data-i18n="nav.home">Bosh</span></button>
+    <button class="tab" data-tab="telegram"><span class="tab__ico">✈️</span><span class="tab__lbl" data-i18n="nav.tg">Telegram</span></button>
+    <button class="tab" data-tab="games"><span class="tab__ico">🎮</span><span class="tab__lbl" data-i18n="nav.games">O'yinlar</span></button>
+    <button class="tab" data-tab="orders"><span class="tab__ico">🧾</span><span class="tab__lbl" data-i18n="nav.orders">Buyurtma</span></button>
+    <button class="tab" data-tab="profile"><span class="tab__ico">👤</span><span class="tab__lbl" data-i18n="nav.profile">Profil</span></button>
+  </nav>
+</div>
+
+<!-- ══════════ Pastdan chiquvchi oyna ══════════ -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet__scrim" data-close></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true">
+    <div class="sheet__grip" data-close></div>
+    <div class="sheet__head">
+      <h2 class="sheet__title" id="sheetTitle"></h2>
+      <button class="sheet__x" type="button" data-close aria-label="Yopish">✕</button>
+    </div>
+    <div class="sheet__body" id="sheetBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>
