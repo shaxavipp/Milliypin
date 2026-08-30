@@ -586,6 +586,7 @@
     const faq = c.faq || [];
 
     const notifOn = me.notifEnabled !== false;
+    const favN = ((me.favorites || []).filter(id => S.catalog.some(x => x.id === id))).length;
     const refSub = c.referral && c.referral.enabled
       ? t("ref.desc", { p: c.referral.percent }) : t("ref.cardSub");
     const loyaltySub = l && l.current
@@ -638,6 +639,8 @@
 
       <div class="menu">
         ${svc("palak", "gold", t("profile.loyalty"), loyaltySub, "", 'data-act="loyalty"')}
+        ${svc("heart", "clay", t("fav.title"),
+          favN ? t("fav.count", { p: favN }) : t("fav.empty"), "", 'data-act="favs"')}
         ${svc("users", "acc", t("ref.card"), refSub, "", 'data-act="referral"')}
         ${svc("star", "clay", t("lb.title"), t("lb.sub"), "", 'data-act="leaders"')}
         ${c.support ? svc("send", "ok", t("profile.support"), "@" + c.support, "",
@@ -727,6 +730,44 @@
     return { main: title, sub: group };
   }
 
+  const isFav = id => !!(S.me && (S.me.favorites || []).indexOf(id) !== -1);
+
+  async function toggleFav(id, btn) {
+    try {
+      const r = await api("/api/favorite", { body: { itemId: id } });
+      if (S.me) S.me.favorites = r.favorites;
+      if (btn) btn.classList.toggle("on", r.on);
+      toast(r.on ? t("fav.added") : t("fav.removed"), "ok");
+      haptic("ok");
+      if (S.tab === "profile") render();
+    } catch (e) { toast(errText(e), "err"); }
+  }
+
+  // Sevimlilar oynasi — profil qatoridan ochiladi
+  function openFavs() {
+    const ids = (S.me && S.me.favorites) || [];
+    const list = ids.map(id => S.catalog.find(x => x.id === id)).filter(Boolean);
+    openSheet(t("fav.title"), list.length ? `<div class="rows" style="padding:0">
+      ${list.map(it => `<div class="row">
+        <span class="row-ic">${ICO(it.icon, 19) || ICO("gift", 19)}</span>
+        <span class="row-b">
+          <span class="row-t">${esc(pick(it.title))}</span>
+          <span class="row-s">${t("prod.from")} ${som(minPrice(it))}</span>
+        </span>
+        <span class="row-e">
+          <button class="btn btn--acc btn-sm" data-item="${esc(it.id)}">${t("prod.buy")}</button>
+          <button class="btn btn--danger btn-sm" data-unfav="${esc(it.id)}">${ICO("x", 13)}</button>
+        </span>
+      </div>`).join("")}</div>`
+      : empty("heart", t("fav.empty"), t("fav.emptySub")),
+      null, { icon: ICO("heart", 20), glaze: 1 });
+
+    el("sheetBody").addEventListener("click", e => {
+      const d = e.target.closest("[data-unfav]");
+      if (d) { toggleFav(d.getAttribute("data-unfav")); return openFavs(); }
+    });
+  }
+
   // Shu mahsulot uchun oxirgi 3 ta betakror ID (eng yangisi birinchi).
   function savedTargets(itemId) {
     const out = [];
@@ -784,6 +825,8 @@
             it.revN ? `<i>· ${money(it.revN)}</i>` : ""}</span>
         </div>
         ${it.region ? `<span class="phero-reg">${esc(it.region)}</span>` : ""}
+        <button class="phero-fav ${isFav(it.id) ? "on" : ""}" id="favBtn"
+          title="${esc(t("fav.title"))}">${ICO("heart", 17)}</button>
       </div>
 
       <div class="lbl">${t(f[0])}</div>
@@ -858,6 +901,7 @@
 
     el("promoBtn").onclick = applyPromo;
     el("idCheck").onclick = checkTarget;
+    el("favBtn").onclick = () => toggleFav(it.id, el("favBtn"));
     const inf = el("idInfo");
     if (inf) inf.onclick = () => openSheetInfo(pick(it.title), note);
 
@@ -1546,6 +1590,7 @@
     if (a === "referral") return openReferral();
     if (a === "leaders") return openLeaders();
     if (a === "promos") return openPromos();
+    if (a === "favs") return openFavs();
     if (a === "howto") return openHowTo();
     if (a === "support") return openLink("https://t.me/" + ((S.config && S.config.support) || ""));
     if (a === "admin") return window.mpOpenAdmin && window.mpOpenAdmin();

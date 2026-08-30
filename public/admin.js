@@ -139,6 +139,7 @@
     catalog:  { title: "Katalog",       render: scrCatalog },
     promo:    { title: "Promokodlar",   render: scrPromo },
     reviews:  { title: "Sharhlar",      render: scrReviews },
+    dash:     { title: "Tahlil",        render: scrDash },
     settings: { title: "Sozlamalar",    render: scrSettings },
     cast:     { title: "Tarqatma",      render: scrCast },
     backup:   { title: "Zaxira / JSON", render: scrBackup }
@@ -178,6 +179,7 @@
     { id: "catalog",  ic: "box",       label: "Katalog" },
     { id: "promo",    ic: "tag",       label: "Promokodlar" },
     { id: "reviews",  ic: "star",      label: "Sharhlar" },
+    { id: "dash",     ic: "chart",     label: "Tahlil" },
     { id: "settings", ic: "cog",       label: "Sozlamalar" },
     { id: "cast",     ic: "megaphone", label: "Tarqatma" }
   ];
@@ -896,7 +898,10 @@
         <div class="ocard" style="margin-left:0;margin-right:0">
           <div class="oc-top">
             <span class="oc-n">${"★".repeat(r.stars)}${"☆".repeat(5 - r.stars)} ${esc(r.name || "—")}</span>
-            <button class="btn btn--danger btn-sm" data-rdel="${esc(r.id)}">${ICO("trash", 14)}</button>
+            <span style="display:flex;gap:5px">
+              <button class="btn btn--line btn-sm" data-redit="${esc(r.id)}">${ICO("edit", 14)}</button>
+              <button class="btn btn--danger btn-sm" data-rdel="${esc(r.id)}">${ICO("trash", 14)}</button>
+            </span>
           </div>
           ${r.text ? `<div class="oc-b">${esc(r.text)}</div>` : ""}
           <div class="oc-m">
@@ -907,6 +912,14 @@
         : `<div class="empty">${ICO("star", 34)}<div class="empty-t">Sharh yo'q</div></div>`}`);
 
     el("admBody").addEventListener("click", async e => {
+      // Tahrirlash: nomaqbul so'zni olib tashlash yoki xato qo'yilgan bahoni
+      // to'g'irlash — sharhni butunlay o'chirishdan ko'ra yaxshiroq.
+      const ed = e.target.closest("[data-redit]");
+      if (ed) {
+        const r = list.find(x => x.id === ed.getAttribute("data-redit"));
+        if (!r) return;
+        return editReview(r);
+      }
       const d = e.target.closest("[data-rdel]");
       if (!d) return;
       if (!(await ask("Sharh o'chirilsinmi?", { yes: "O'chirish" }))) return;
@@ -914,6 +927,135 @@
         await api("/api/admin/review", { body: { action: "delete", id: d.getAttribute("data-rdel") } });
         toast("O'chirildi", "ok");
         go("reviews");
+      } catch (err) { toast(errText(err), "err"); }
+    });
+  }
+
+  // Sharhni tahrirlash ekrani
+  function editReview(r) {
+    body(`
+      <button class="admback" id="rBack">${ICO("back", 15)}Sharhlar</button>
+      <div class="fld"><label class="lbl">Baho</label>
+        <div class="pills" id="rStars">
+          ${[1, 2, 3, 4, 5].map(n => `<button class="pill ${n === r.stars ? "on" : ""}" data-rs="${n}">${n}★</button>`).join("")}
+        </div></div>
+      <div class="fld"><label class="lbl">Mijoz nomi</label>
+        <input class="input" id="rName" value="${esc(r.name || "")}"></div>
+      <div class="fld"><label class="lbl">Matn</label>
+        <textarea class="textarea" id="rText">${esc(r.text || "")}</textarea></div>
+      <div class="tiny mut" style="margin-top:8px">${esc(r.itemTitle || "")} · ${dt(r.ts)}</div>
+      <button class="btn btn--acc btn-w" id="rSave" style="margin-top:12px">${ICO("check", 15)}Saqlash</button>`);
+
+    let stars = r.stars;
+    el("rBack").onclick = () => go("reviews");
+    window.mpSetSheetBack(() => { go("reviews"); return true; });
+    el("rStars").addEventListener("click", e => {
+      const b = e.target.closest("[data-rs]");
+      if (!b) return;
+      stars = Number(b.getAttribute("data-rs"));
+      [...el("rStars").children].forEach(c => c.classList.toggle("on", c === b));
+    });
+    el("rSave").onclick = async () => {
+      try {
+        await api("/api/admin/review", {
+          body: { action: "edit", id: r.id, stars, name: el("rName").value.trim(), text: el("rText").value.trim() }
+        });
+        toast("Saqlandi", "ok");
+        go("reviews");
+      } catch (e) { toast(errText(e), "err"); }
+    };
+  }
+
+  /* ═══════════ Tahlil ═══════════ */
+
+  // 30 kunlik savdo grafigi — tashqi kutubxonasiz, oddiy SVG: ustunlar sirlangan
+  // g'ishtdek, ustidan egri chiziq. Bo'sh kunlar ham ko'rinadi.
+  function chartSVG(daily) {
+    if (!daily || !daily.length) return `<div class="tiny mut">Ma'lumot yo'q</div>`;
+    const W = 320, H = 110, P = 6;
+    const max = daily.reduce((m, d) => Math.max(m, d.total), 0) || 1;
+    const bw = (W - P * 2) / daily.length;
+    const bars = daily.map((d, i) => {
+      const h = (d.total / max) * (H - P * 2);
+      return `<rect x="${(P + i * bw).toFixed(1)}" y="${(H - P - h).toFixed(1)}"
+        width="${(bw * 0.62).toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="1.5"
+        fill="currentColor" opacity=".2"></rect>`;
+    }).join("");
+    const stepX = (W - P * 2) / Math.max(1, daily.length - 1);
+    const pts = daily.map((d, i) =>
+      (P + i * stepX).toFixed(1) + "," + (H - P - (d.total / max) * (H - P * 2)).toFixed(1)).join(" ");
+    const day = x => x.slice(8) + "." + x.slice(5, 7);
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart">${bars}
+      <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linejoin="round" stroke-linecap="round"></polyline></svg>
+      <div class="chart-x"><span>${day(daily[0].date)}</span>
+        <span class="price">${money(max)} so'm — eng yuqori kun</span>
+        <span>${day(daily[daily.length - 1].date)}</span></div>`;
+  }
+
+  async function scrDash() {
+    const d = await api("/api/admin/dashboard");
+    const dt = ts => ts ? new Date(ts).toLocaleDateString("ru-RU") : "—";
+
+    body(`${backBar()}
+      <div class="kpi">
+        <div class="kpi-b"><div class="kpi-v">${money(d.sales.today)}</div><div class="kpi-k">Bugun · ${d.counts.today} ta</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.sales.week)}</div><div class="kpi-k">Hafta · ${d.counts.week} ta</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.sales.month)}</div><div class="kpi-k">Oy · ${d.counts.month} ta</div></div>
+        <div class="kpi-b"><div class="kpi-v">${d.newUsers.daily}</div><div class="kpi-k">Bugungi yangi mijoz</div></div>
+        <div class="kpi-b"><div class="kpi-v">${d.newUsers.weekly}</div><div class="kpi-k">Haftalik yangi mijoz</div></div>
+        <div class="kpi-b"><div class="kpi-v">${d.activeUsers}</div><div class="kpi-k">30 kunda faol</div></div>
+      </div>
+
+      <div class="sect"><h3>30 kunlik savdo</h3></div>
+      <div class="chartbox">${chartSVG(d.daily)}</div>
+
+      <div class="sect"><h3>Oyning ko'p sotilganlari</h3></div>
+      ${d.top.length ? `<div class="rows" style="padding:0">
+        ${d.top.map((x, i) => `<div class="row">
+          <span class="row-ic">${i + 1}</span>
+          <span class="row-b"><span class="row-t">${esc(x.title)}</span></span>
+          <span class="row-e"><span class="row-am">${x.n} ta</span></span>
+        </div>`).join("")}</div>` : `<div class="tiny mut">Hozircha sotuv yo'q</div>`}
+
+      <div class="sect"><h3>Qaytmagan mijozlar (30+ kun)</h3></div>
+      <div class="hint" style="margin-bottom:9px">${ICO("info", 13)}<span>Ilgari xarid qilgan, ammo bir oydan beri qaytmagan mijozlar. Ularga promokod yuborsangiz qaytish ehtimoli yuqori.</span></div>
+      ${d.churn.length ? `<div class="rows" style="padding:0">
+        ${d.churn.map(u => `<div class="row">
+          <span class="row-ic">${ICO("user", 19)}</span>
+          <span class="row-b">
+            <span class="row-t">${u.username ? "@" + esc(u.username) : esc(u.name || ("ID " + u.uid))}</span>
+            <span class="row-s">Oxirgi xarid: ${dt(u.lastTs)}</span>
+          </span>
+          <span class="row-e"><span class="row-am price">${money(u.spent)}</span>
+            <button class="btn btn--line btn-sm" data-msg="${esc(u.uid)}">${ICO("send", 13)}Xabar</button></span>
+        </div>`).join("")}</div>` : `<div class="tiny mut">Hammasi faol — qaytmagan mijoz yo'q.</div>`}
+
+      <div class="sect"><h3>Hisobotlar</h3></div>
+      <button class="btn btn--line btn-w" id="dashCsv">${ICO("download", 15)}Buyurtmalar hisobotini Telegramga yuborish</button>`);
+
+    el("dashCsv").onclick = async () => {
+      const b = el("dashCsv");
+      b.disabled = true;
+      try {
+        await api("/api/admin/export", { body: {} });
+        toast("Hisobot Telegramga yuborildi", "ok");
+      } catch (e) { toast(errText(e), "err"); }
+      b.disabled = false;
+    };
+
+    el("admBody").addEventListener("click", async e => {
+      const m = e.target.closest("[data-msg]");
+      if (!m) return;
+      const text = await askText("Mijozga xabar", {
+        text: "Qaytmagan mijozga taklif yuboring.",
+        placeholder: "Masalan: sizga 10% chegirma — QAYTING10", yes: "Yuborish"
+      });
+      if (text === null) return;
+      if (!text) return toast("Matn kiriting", "err");
+      try {
+        await api("/api/admin/user", { body: { id: m.getAttribute("data-msg"), action: "message", text } });
+        toast("Yuborildi", "ok");
       } catch (err) { toast(errText(err), "err"); }
     });
   }

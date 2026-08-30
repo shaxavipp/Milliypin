@@ -41,6 +41,8 @@
     shield: '<path d="M12 2.8 4.5 5.8v6c0 4.4 3.1 7.9 7.5 9.4 4.4-1.5 7.5-5 7.5-9.4v-6Z"/><path d="m8.8 11.8 2.4 2.4 4-4.6"/>',
     users: '<circle cx="9" cy="8" r="3.2"/><path d="M2.8 19.5c.5-3.2 3.1-4.9 6.2-4.9s5.7 1.7 6.2 4.9"/><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2"/><path d="M17.5 14.9c2 .6 3.4 2.1 3.7 4.6"/>',
     copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 5.5A2 2 0 0 0 13.5 3.5h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2"/>',
+    // Grafik — tahlil bo'limi: ustunlar va o'sish chizig'i
+    chart: '<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 20v-6M12.5 20v-9M17 20v-4"/>',
     // Rasm — admin panelidagi rasm maydonining bo'sh holati
     image: '<rect x="3" y="5" width="18" height="14" rx="2.4"/><circle cx="8.6" cy="10.2" r="1.7"/><path d="m4 17 4.6-4.6a1.6 1.6 0 0 1 2.2 0L15 16.6M14 14.4l1.6-1.6a1.6 1.6 0 0 1 2.2 0L20 15"/>',
     check: '<path d="m4.5 12.5 5 5 10-11"/>',

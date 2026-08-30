@@ -609,6 +609,39 @@ async function main() {
     assert.strictEqual(r.data.review.text, "tahrirlandi");
   });
 
+  group("Sevimlilar");
+  await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
+    const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });
+    assert.strictEqual(on.status, 200);
+    assert.strictEqual(on.data.on, true);
+    assert.ok(on.data.favorites.includes(stars.id));
+
+    const me = await call("/api/me", { as: USER });
+    assert.ok(me.data.favorites.includes(stars.id));
+
+    const off = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });
+    assert.strictEqual(off.data.on, false);
+    assert.ok(!off.data.favorites.includes(stars.id));
+  });
+  await it("bo'sh mahsulot ID rad etiladi", async () => {
+    const r = await call("/api/favorite", { as: USER, body: {} });
+    assert.strictEqual(r.status, 400);
+  });
+
+  group("Tahlil ekrani");
+  await it("dashboard 30 kunlik qatorni beradi", async () => {
+    const r = await call("/api/admin/dashboard", { as: ADMIN });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.daily.length, 30);
+    assert.ok(typeof r.data.sales.today === "number");
+    assert.ok(Array.isArray(r.data.top));
+    assert.ok(Array.isArray(r.data.churn));
+  });
+  await it("dashboard faqat adminlarga ochiq", async () => {
+    const r = await call("/api/admin/dashboard", { as: USER });
+    assert.strictEqual(r.status, 403);
+  });
+
   group("Admin qidiruvi");
   await it("buyurtma raqami bo'yicha topiladi", async () => {
     const all = (await call("/api/admin/orders?status=all", { as: ADMIN })).data;

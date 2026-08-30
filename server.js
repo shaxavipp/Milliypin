@@ -550,6 +550,7 @@ function myView(u) {
     spent: num(acc.spent),
     refEarned: num(acc.refEarned),
     notifEnabled: acc.notifEnabled !== false,
+    favorites: Array.isArray(acc.favorites) ? acc.favorites : [],
     isAdmin: isAdmin(u),
     loyalty: l,
     orders: store.ordersByUser(db, acc.id, 60).map(o => Object.assign({}, o, {
@@ -758,6 +759,24 @@ route("GET", "/api/referral", (req, res) => {
 });
 
 // Bot xabarlarini yoqish/o'chirish (buyurtma holati, keshbek, referal xabarlari)
+// Sevimlilar — mijoz tez-tez oladigan mahsulotlarni belgilab qo'yadi va
+// profilidan bir bosishda ochadi.
+route("POST", "/api/favorite", (req, res) => {
+  const u = requireUser(req, res); if (!u) return;
+  readBody(req, res, b => {
+    const acc = account(u);
+    const id = str(b.itemId, 40);
+    if (!id) return send(res, 400, { error: "item_required" });
+    const list = Array.isArray(acc.favorites) ? acc.favorites.slice() : [];
+    const i = list.indexOf(id);
+    if (i === -1) { if (list.length >= 40) list.shift(); list.push(id); }
+    else list.splice(i, 1);
+    acc.favorites = list;
+    store.userPut(db, acc);
+    send(res, 200, { ok: true, favorites: list, on: i === -1 });
+  });
+});
+
 route("POST", "/api/notif", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
   readBody(req, res, b => {
@@ -927,6 +946,62 @@ route("GET", "/api/admin/overview", (req, res) => {
     top: Object.entries(doneIn.reduce((m, o) => {
       m[o.itemTitle] = (m[o.itemTitle] || 0) + 1; return m;
     }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([title, n]) => ({ title, n }))
+  });
+});
+
+/* Tahlil ekrani: 30 kunlik savdo egri chizig'i, eng ko'p sotilganlar, yangi
+   va qaytmagan mijozlar. Do'kon egasi bir qarashda o'sish yoki pasayishni
+   ko'radi — bu buyurtmalarni birma-bir sanashdan ancha tez. */
+route("GET", "/api/admin/dashboard", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const nowTs = now();
+  const DAY = 24 * 3600 * 1000;
+  const orders = store.ordersByStatus(db, "done", 20000);
+  const users = store.usersAll(db);
+
+  const sum = from => orders.filter(o => o.ts >= from).reduce((a, o) => a + num(o.total), 0);
+
+  // Oxirgi 30 kun — har kun uchun bitta nuqta (bo'sh kunlar ham qoladi,
+  // aks holda grafik yolg'on "uzluksiz o'sish" ko'rsatardi).
+  const daily = [];
+  const start = new Date(nowTs - 29 * DAY); start.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 30; i++) {
+    const from = start.getTime() + i * DAY, to = from + DAY;
+    const day = orders.filter(o => o.ts >= from && o.ts < to);
+    daily.push({
+      date: new Date(from).toISOString().slice(0, 10),
+      total: day.reduce((a, o) => a + num(o.total), 0),
+      n: day.length
+    });
+  }
+
+  const lastOrderOf = {};
+  orders.forEach(o => { if (!lastOrderOf[o.uid] || o.ts > lastOrderOf[o.uid]) lastOrderOf[o.uid] = o.ts; });
+
+  send(res, 200, {
+    sales: { today: sum(periodStart("today")), week: sum(periodStart("week")), month: sum(periodStart("month")) },
+    counts: {
+      today: orders.filter(o => o.ts >= periodStart("today")).length,
+      week: orders.filter(o => o.ts >= periodStart("week")).length,
+      month: orders.filter(o => o.ts >= periodStart("month")).length
+    },
+    daily,
+    top: Object.entries(orders.filter(o => o.ts >= periodStart("month")).reduce((m, o) => {
+      m[o.itemTitle] = (m[o.itemTitle] || 0) + 1; return m;
+    }, {})).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([title, n]) => ({ title, n })),
+    newUsers: {
+      daily: users.filter(u => num(u.createdAt) >= periodStart("today")).length,
+      weekly: users.filter(u => num(u.createdAt) >= periodStart("week")).length
+    },
+    activeUsers: Object.keys(lastOrderOf).filter(uid => lastOrderOf[uid] >= nowTs - 30 * DAY).length,
+    // 30+ kundan beri xarid qilmagan, lekin ilgari pul sarflagan mijozlar —
+    // ularga chegirma yuborish eng foydali "qaytarish" usuli.
+    churn: users
+      .filter(u => num(u.spent) > 0 && (!lastOrderOf[u.id] || lastOrderOf[u.id] < nowTs - 30 * DAY))
+      .sort((a, b) => num(b.spent) - num(a.spent))
+      .slice(0, 10)
+      .map(u => ({ uid: u.id, name: u.firstName || "", username: u.username || "",
+                   lastTs: lastOrderOf[u.id] || 0, spent: num(u.spent) }))
   });
 });
 
