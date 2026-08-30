@@ -14,7 +14,7 @@ const crypto = require("crypto");
 const url = require("url");
 
 const store = require("./db.js");
-const { CATALOG } = require("./seed.js");
+const { CATALOG, normalizeIcon } = require("./seed.js");
 
 /* ═══════════════ Konfiguratsiya ═══════════════ */
 
@@ -84,6 +84,18 @@ function cfgPut(key, value) { store.setPut(db, key, value); }
 if (store.productsAll(db, false).length === 0) {
   store.productsReplaceAll(db, JSON.parse(JSON.stringify(CATALOG)));
   console.log("[milliypin] standart katalog yuklandi:", CATALOG.length, "ta mahsulot");
+} else {
+  // Ilova endi emoji o'rniga chizilgan ikonkalardan foydalanadi. Eskiroq o'rnatmalarda
+  // saqlangan emoji bir marta mos ikonka kalitiga ko'chiriladi.
+  const all = store.productsAll(db, false);
+  const fixed = all.filter(it => {
+    const k = normalizeIcon(it.icon);
+    if (k === it.icon) return false;
+    it.icon = k;
+    store.productPut(db, it);
+    return true;
+  }).length;
+  if (fixed) console.log("[milliypin] ikonka ko'chirildi:", fixed, "ta mahsulot");
 }
 
 /* ═══════════════ Yordamchilar ═══════════════ */
@@ -272,12 +284,12 @@ function orderCard(o) {
   return [
     "🧾 <b>Buyurtma #" + o.seq + "</b>",
     "",
-    "▫️ Mahsulot: <b>" + esc(o.itemTitle) + "</b>",
-    "▫️ Paket: <b>" + esc(o.tierLabel) + "</b>",
-    "▫️ Ma'lumot: <code>" + esc(o.target) + "</code>",
-    o.comment ? "▫️ Izoh: " + esc(o.comment) : "",
-    "▫️ Summa: <b>" + MONEY(o.total) + "</b>" + (o.discount ? " (chegirma " + MONEY(o.discount) + ")" : ""),
-    "▫️ Mijoz: " + esc(uName) + " (<code>" + o.uid + "</code>)",
+    "• Mahsulot: <b>" + esc(o.itemTitle) + "</b>",
+    "• Paket: <b>" + esc(o.tierLabel) + "</b>",
+    "• Ma'lumot: <code>" + esc(o.target) + "</code>",
+    o.comment ? "• Izoh: " + esc(o.comment) : "",
+    "• Summa: <b>" + MONEY(o.total) + "</b>" + (o.discount ? " (chegirma " + MONEY(o.discount) + ")" : ""),
+    "• Mijoz: " + esc(uName) + " (<code>" + o.uid + "</code>)",
     "",
     "Holat: <b>" + (STATUS_LABEL[o.status] || o.status) + "</b>"
   ].filter(Boolean).join("\n");
@@ -288,9 +300,9 @@ function topupCard(p) {
   return [
     "💳 <b>Balans to'ldirish</b>",
     "",
-    "▫️ Summa: <b>" + MONEY(p.amount) + "</b>",
-    "▫️ Karta: " + esc(p.cardType) + " · <code>" + esc(p.cardNumber) + "</code>",
-    "▫️ Mijoz: " + esc(uName) + " (<code>" + p.uid + "</code>)",
+    "• Summa: <b>" + MONEY(p.amount) + "</b>",
+    "• Karta: " + esc(p.cardType) + " · <code>" + esc(p.cardNumber) + "</code>",
+    "• Mijoz: " + esc(uName) + " (<code>" + p.uid + "</code>)",
     "",
     "Holat: <b>" + (st[p.status] || p.status) + "</b>"
   ].join("\n");
@@ -736,7 +748,7 @@ route("POST", "/api/admin/catalog", (req, res) => {
     const clean = b.items.map((it, i) => ({
       id: str(it.id, 40) || uid7("it_"),
       category: str(it.category, 20) === "telegram" ? "telegram" : "game",
-      group: str(it.group, 60), icon: str(it.icon, 12),
+      group: str(it.group, 60), icon: normalizeIcon(it.icon),
       title: { uz: str((it.title || {}).uz, 80), ru: str((it.title || {}).ru, 80) },
       field: str(it.field, 20) || "playerId",
       note: { uz: str((it.note || {}).uz, 240), ru: str((it.note || {}).ru, 240) },

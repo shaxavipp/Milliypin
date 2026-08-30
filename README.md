@@ -1,15 +1,29 @@
-# 🇺🇿 Milliy Pin — Telegram Mini App
+# Milliy Pin — Telegram Mini App
 
-**Telegram xizmatlari va o'yin donatlari** uchun donat platformasi. O'zbek milliy uslubidagi
-interfeys (Registon ko'ki, zar naqshlar, girih ornamenti), ikki til (UZ / RU), kunduzgi va
-tungi rejim.
+**Telegram xizmatlari va o'yin donatlari** uchun donat platformasi. Ikki til (UZ / RU),
+kunduzgi va tungi rejim.
+
+## Dizayn tizimi
+
+Vizual manba — **Rishton kulolchiligi**. Kunduzgi mavzu "sopol va saman" (yonilgan loy,
+somon rangli qog'oz), tungi mavzu "ishkor" (ko'k-yashil sir, chiroq yorug'i).
+
+| Qatlam | Yechim |
+|---|---|
+| Bezak | Girih (sakkiz qirrali yulduz) fon to'ri, koshin haoshiyasi (uchburchak-nuqta zanjirasi) sarlavha ostida va sheet tepasida, peshtoq yoyi — "Bosh" ikonkasi |
+| Ikonkalar | **Emoji yo'q.** 40 dan ortiq ikonka bitta qo'lda chizilgan: 24×24 to'r, 1.6px chiziq, yumaloq uchlar (`public/icons.js`) |
+| Shrift | `Archivo` — interfeys va sarlavhalar (siqiq harf oralig'i); `IBM Plex Mono` — barcha raqamlar, `tabular-nums` bilan (narxlar ustma-ust tekis turadi) |
+| Geometriya | Kichik radiuslar: karta 10px, yorliq 4px, tugma 10px. 4px to'r, zich matn |
+| Logotip | Girih yulduzi ichida "MP" tamg'asi — bitta SVG `<use>` orqali splash, sarlavha va favicon uchun |
+| Mahsulot to'ri | 3 ustunli koshin panel; har guruh o'z sir rangini oladi (feruza / sopol / zar / yashil) |
+| Yorliq | Faqat haqiqiy chegirma foizi (`−14%`) ko'rsatiladi — har mahsulotda turgan "TOP" ma'nosiz edi |
 
 Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 
 | Bo'lim | Nimalar bor |
 |---|---|
-| ✈️ **Telegram xizmatlari** | Telegram Premium (3/6/12 oy), Telegram Stars, Premium sovg'alar, kanal obunachilari, post ko'rishlari, reaksiyalar |
-| 🎮 **O'yin donatlari** | PUBG Mobile UC, Free Fire olmoslari, Mobile Legends olmoslari, Standoff 2 Gold, Brawl Stars Gems, Roblox Robux, CODM CP, Clash of Clans Gems, Genshin Impact Crystals |
+| **Telegram xizmatlari** | Telegram Premium (3/6/12 oy), Telegram Stars, Premium sovg'alar, kanal obunachilari, post ko'rishlari, reaksiyalar |
+| **O'yin donatlari** | PUBG Mobile UC, Free Fire olmoslari, Mobile Legends olmoslari, Standoff 2 Gold, Brawl Stars Gems, Roblox Robux, CODM CP, Clash of Clans Gems, Genshin Impact Crystals |
 
 ---
 
@@ -21,20 +35,20 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   (masalan 100 000 → 100 137), shu bilan bank SMS'idan to'lov xatosiz tanib olinadi
 - Paket tanlash, promokod, izoh, mahsulotga mos ma'lumot maydoni
   (@username / Player ID / ID+Zone / nik / havola)
-- Buyurtmalar tarixi va bajarilgan buyurtmani ⭐ baholash
+- Buyurtmalar tarixi va bajarilgan buyurtmani baholash
 - Referal dastur — do'st har xarid qilganda foiz balansga tushadi
 - Sodiqlik darajalari (Chinnigul → Zargar → Amir → Sohibqiron) va avtomatik keshbek
 - Buyurtma holati o'zgarganda botdan xabar keladi
 
-**Admin uchun** (Profil → 🛡 Admin panel; faqat `ADMIN_IDS` ro'yxatidagilar ko'radi)
-- 📊 Umumiy: kunlik / haftalik / umumiy tushum, ochiq buyurtmalar, eng ko'p sotilganlar, CSV hisobot
-- 🧾 Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
-- 💳 To'lovlar: kutayotgan to'lovni tasdiqlash yoki rad etish
-- 👥 Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
-- 📦 Katalog: mahsulot va paketlarni qo'shish/tahrirlash/tartiblash → **Nashr qilish**
-- 🎟 Promokodlar: foiz yoki so'mda, limit va min. buyurtma bilan
-- ⚙️ Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni
-- 📢 Tarqatma: barcha foydalanuvchilarga xabar
+**Admin uchun** (Profil → Admin panel; faqat `ADMIN_IDS` ro'yxatidagilar ko'radi)
+- Umumiy: kunlik / haftalik / umumiy tushum, ochiq buyurtmalar, eng ko'p sotilganlar, CSV hisobot
+- Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
+- To'lovlar: kutayotgan to'lovni tasdiqlash yoki rad etish
+- Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
+- Katalog: mahsulot va paketlarni qo'shish/tahrirlash/tartiblash → **Nashr qilish**
+- Promokodlar: foiz yoki so'mda, limit va min. buyurtma bilan
+- Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni
+- Tarqatma: barcha foydalanuvchilarga xabar
 
 ---
 
@@ -60,8 +74,8 @@ BOT_TOKEN=123456:AA...  ADMIN_IDS=5606872249  node server.js
 
 | O'zgaruvchi | Majburiy | Nima uchun |
 |---|---|---|
-| `BOT_TOKEN` | ✅ | @BotFather bergan token. Bo'lmasa initData imzosi tekshirilmaydi va API yopiq turadi. |
-| `ADMIN_IDS` | ✅ | Vergul bilan ajratilgan Telegram ID'lar — faqat shular admin panelni ochadi. |
+| `BOT_TOKEN` | ha | @BotFather bergan token. Bo'lmasa initData imzosi tekshirilmaydi va API yopiq turadi. |
+| `ADMIN_IDS` | ha | Vergul bilan ajratilgan Telegram ID'lar — faqat shular admin panelni ochadi. |
 | `PORT` | — | Standart 3000 (Railway o'zi beradi). |
 | `DATA_DIR` | — | Baza papkasi. Standart `/data`, yozib bo'lmasa `./data`. |
 | `TG_WEBHOOK_SECRET` | — | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin — begona so'rovlarni to'sadi. |
@@ -85,12 +99,12 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<domen>/tg/webh
 ```
 Mijoz: summa + karta → "Davom etish"
    ↓  server betakror summa beradi (100 000 → 100 137) va 15 daqiqalik taymer qo'yadi
-Mijoz: aynan shu summani o'tkazadi → "✅ To'lov qildim"
+Mijoz: aynan shu summani o'tkazadi → "To'lov qildim"
    ↓  to'lovlar kanaliga xabar ketadi
-Admin: bank SMS'ini tekshirib "✅ Tasdiqlash"  →  balansga ASOSIY summa tushadi
+Admin: bank SMS'ini tekshirib "Tasdiqlash"  →  balansga ASOSIY summa tushadi
 ```
 
-**Avtomatik tasdiqlash.** To'lovlar kanaliga (`⚙️ Sozlamalar → 💳 To'lovlar`) `humocard` yoki
+**Avtomatik tasdiqlash.** To'lovlar kanaliga (Sozlamalar → To'lovlar kanali) `humocard` yoki
 `cardxabar` kabi bank botini qo'shsangiz va webhook ishlab tursa, server o'sha xabardan
 summani o'qib, aynan shu summani kutayotgan to'lovni **o'zi tasdiqlaydi** — admin aralashuvi
 kerak bo'lmaydi. Summa mos kelmasa, to'lov qo'lda tasdiqlash uchun kutib turadi.
@@ -106,13 +120,18 @@ server.js        HTTP server, API, Telegram Bot API va webhook  (tashqi kutubxon
 db.js            SQLite qatlami (node:sqlite) — mahsulot, buyurtma, to'lov, mijoz, promokod
 seed.js          Birinchi ishga tushishdagi standart katalog
 public/
-  index.html     Ilova karkasi (splash, sarlavha, tablar, sheet)
-  styles.css     Milliy uslub: rang tokenlari, ornament, kunduz/tun rejimi
+  index.html     Ilova karkasi (splash, sarlavha, tablar, sheet) va logotip SVG
+  styles.css     Dizayn tizimi: rang tokenlari, naqsh, kunduz/tun rejimi
+  icons.js       Qo'lda chizilgan SVG ikonkalar to'plami
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (8 bo'lim)
 test/run.js      38 ta integratsion test — npm test
 ```
+
+**Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
+emoji bir marta chizilgan ikonka kalitiga avtomatik ko'chiriladi — qo'lda hech narsa
+qilish shart emas (`seed.js` dagi `normalizeIcon`).
 
 Ma'lumot bazasi: `$DATA_DIR/milliypin.db` (WAL rejimi). Har bir jadval
 `id + indekslanadigan ustunlar + data(JSON)` ko'rinishida — shu sabab sxema kengayganda

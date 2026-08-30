@@ -3,100 +3,85 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#0E2A47">
-<title>Milliy Pin — Telegram va o'yin donatlari</title>
+<meta name="theme-color" content="#F3EADA">
+<title>Milliy Pin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="/styles.css">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
-<!-- ══════════ Splash: gumbaz + milliy naqsh ══════════ -->
-<div id="splash" class="splash">
-  <div class="splash__ornament">
-    <svg viewBox="0 0 200 200" aria-hidden="true">
-      <defs>
-        <linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#F3D08A"/><stop offset="50%" stop-color="#D9A441"/><stop offset="100%" stop-color="#B57F22"/>
-        </linearGradient>
-      </defs>
-      <g fill="none" stroke="url(#gGold)" stroke-width="2.4" stroke-linecap="round">
-        <circle cx="100" cy="100" r="74" stroke-dasharray="6 9" opacity=".55"/>
-        <circle cx="100" cy="100" r="60"/>
-        <!-- 8 qirrali girih yulduzi -->
-        <path d="M100 40 L145 60 L160 100 L145 140 L100 160 L55 140 L40 100 L55 60 Z"/>
-        <path d="M100 55 L131 68 L144 100 L131 132 L100 145 L69 132 L56 100 L69 68 Z" opacity=".7"/>
-        <path d="M100 40 L100 160 M40 100 L160 100 M57 57 L143 143 M143 57 L57 143" opacity=".35"/>
-      </g>
-      <g fill="url(#gGold)">
-        <circle cx="100" cy="100" r="7"/>
-        <circle cx="100" cy="40" r="3.5"/><circle cx="100" cy="160" r="3.5"/>
-        <circle cx="40" cy="100" r="3.5"/><circle cx="160" cy="100" r="3.5"/>
-      </g>
-    </svg>
+<!-- ══ Muhr: sakkiz qirrali girih yulduzi, ichida "MP" tamg'asi ══ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="seal">
+    <g class="rot" fill="none" stroke="currentColor" stroke-linejoin="round">
+      <path stroke-width="1.6" d="M32 3 39.4 24.6 61 32 39.4 39.4 32 61 24.6 39.4 3 32 24.6 24.6Z"/>
+      <rect stroke-width="1.1" x="13" y="13" width="38" height="38" transform="rotate(45 32 32)" opacity=".62"/>
+    </g>
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="32" cy="32" r="12.4" opacity=".8"/>
+      <path d="M27.4 37.6V26.4l4.6 6 4.6-6v11.2"/>
+    </g>
+  </g>
+</defs></svg>
+
+<div id="splash">
+  <div class="sp-seal"><svg viewBox="0 0 64 64"><use href="#seal"/></svg></div>
+  <div>
+    <div class="sp-name center">Milliy Pin</div>
+    <div class="sp-sub center">Telegram va o'yin donatlari</div>
   </div>
-  <div class="splash__brand">MILLIY PIN</div>
-  <div class="splash__tag">Telegram xizmatlari va o'yin donatlari</div>
-  <div class="splash__bar"><i></i></div>
+  <div class="sp-bar"><i></i></div>
 </div>
 
-<!-- ══════════ Ilova ══════════ -->
-<div id="app" class="app" hidden>
-
+<div id="app" hidden>
   <header class="topbar">
-    <div class="topbar__pattern" aria-hidden="true"></div>
-    <div class="topbar__row">
-      <div class="brand">
-        <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 40 40"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
-            <path d="M20 4 L32 11 L32 25 L20 36 L8 25 L8 11 Z"/><path d="M20 12 L26 15.5 L26 23 L20 28 L14 23 L14 15.5 Z"/>
-          </g></svg>
+    <div class="tb-row">
+      <div class="mark">
+        <span class="mark-seal"><svg viewBox="0 0 64 64"><use href="#seal"/></svg></span>
+        <span class="mark-txt">
+          <span class="mark-name">Milliy Pin</span>
+          <span class="mark-sub" id="markSub">Donat xizmati</span>
         </span>
-        <span class="brand__text">Milliy&nbsp;Pin</span>
       </div>
-      <div class="topbar__actions">
-        <button class="chip chip--balance" id="balanceChip" type="button">
-          <span class="chip__ico">💠</span><span id="balanceValue">0</span><span class="chip__cur">so'm</span>
+      <div class="tb-act">
+        <button class="bal-pill" id="balPill" type="button">
+          <span id="balIco"></span><span class="num" id="balVal">0</span><span class="cur">so'm</span>
         </button>
-        <button class="icobtn" id="langBtn" type="button" title="Til">UZ</button>
-        <button class="icobtn" id="themeBtn" type="button" title="Rejim">🌙</button>
+        <button class="iconbtn" id="langBtn" type="button" title="Til">UZ</button>
+        <button class="iconbtn" id="themeBtn" type="button" title="Ko'rinish"></button>
       </div>
-    </div>
-    <div class="topbar__wave" aria-hidden="true">
-      <svg viewBox="0 0 400 22" preserveAspectRatio="none">
-        <path d="M0 22 Q 25 0 50 22 T 100 22 T 150 22 T 200 22 T 250 22 T 300 22 T 350 22 T 400 22 V22 H0Z" fill="currentColor"/>
-      </svg>
     </div>
   </header>
+  <div class="band" aria-hidden="true"></div>
 
-  <main id="view" class="view"><!-- app.js render qiladi --></main>
+  <main id="view" class="view"></main>
 
   <nav class="tabbar" id="tabbar">
-    <button class="tab is-active" data-tab="home"><span class="tab__ico">🏠</span><span class="tab__lbl" data-i18n="nav.home">Bosh</span></button>
-    <button class="tab" data-tab="telegram"><span class="tab__ico">✈️</span><span class="tab__lbl" data-i18n="nav.tg">Telegram</span></button>
-    <button class="tab" data-tab="games"><span class="tab__ico">🎮</span><span class="tab__lbl" data-i18n="nav.games">O'yinlar</span></button>
-    <button class="tab" data-tab="orders"><span class="tab__ico">🧾</span><span class="tab__lbl" data-i18n="nav.orders">Buyurtma</span></button>
-    <button class="tab" data-tab="profile"><span class="tab__ico">👤</span><span class="tab__lbl" data-i18n="nav.profile">Profil</span></button>
+    <span class="tabpill" id="tabpill"></span>
   </nav>
 </div>
 
-<!-- ══════════ Pastdan chiquvchi oyna ══════════ -->
-<div id="sheet" class="sheet" hidden>
-  <div class="sheet__scrim" data-close></div>
-  <div class="sheet__panel" role="dialog" aria-modal="true">
-    <div class="sheet__grip" data-close></div>
-    <div class="sheet__head">
-      <h2 class="sheet__title" id="sheetTitle"></h2>
-      <button class="sheet__x" type="button" data-close aria-label="Yopish">✕</button>
+<div id="sheetWrap" hidden>
+  <div class="scrim" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="sh-head">
+      <div class="sh-grab" data-close></div>
+      <div class="sh-bar">
+        <h2 class="sh-title" id="sheetTitle"></h2>
+        <button class="sh-x" type="button" data-close aria-label="Yopish" id="sheetX"></button>
+      </div>
+      <div class="sh-band" aria-hidden="true"></div>
     </div>
-    <div class="sheet__body" id="sheetBody"></div>
+    <div class="sh-body" id="sheetBody"></div>
   </div>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
+<script src="/icons.js"></script>
 <script src="/i18n.js"></script>
 <script src="/app.js"></script>
 <script src="/admin.js"></script>

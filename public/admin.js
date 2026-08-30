@@ -10,36 +10,37 @@
   const toast = (...a) => window.mpToast(...a);
   const errText = e => window.mpErr(e);
   const el = id => document.getElementById(id);
+  const ICO = window.ICO;
 
   const nf = new Intl.NumberFormat("ru-RU");
-  const money = n => nf.format(Math.round(Number(n) || 0));
+  const money = n => nf.format(Math.round(Number(n) || 0)).replace(/\u00A0/g, "\u2009");
   const som = n => money(n) + " so'm";
   const dt = ts => new Date(ts).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
   const TABS = [
-    { id: "dash",     label: "📊 Umumiy" },
-    { id: "orders",   label: "🧾 Buyurtmalar" },
-    { id: "payments", label: "💳 To'lovlar" },
-    { id: "users",    label: "👥 Mijozlar" },
-    { id: "catalog",  label: "📦 Katalog" },
-    { id: "promo",    label: "🎟 Promokod" },
-    { id: "settings", label: "⚙️ Sozlamalar" },
-    { id: "cast",     label: "📢 Tarqatma" }
+    { id: "dash",     ic: "chart",     label: "Umumiy" },
+    { id: "orders",   ic: "scroll",    label: "Buyurtmalar" },
+    { id: "payments", ic: "card",      label: "To'lovlar" },
+    { id: "users",    ic: "users",     label: "Mijozlar" },
+    { id: "catalog",  ic: "box",       label: "Katalog" },
+    { id: "promo",    ic: "tag",       label: "Promokod" },
+    { id: "settings", ic: "cog",       label: "Sozlamalar" },
+    { id: "cast",     ic: "megaphone", label: "Tarqatma" }
   ];
 
   const A = { tab: "dash", data: {}, catalog: [], settings: null, orderFilter: "new" };
 
   function openAdmin() {
-    window.mpSheet("🛡 Admin panel", `
-      <div class="adm-tabs" id="admTabs">
-        ${TABS.map(x => `<button class="adm-tab ${x.id === A.tab ? "is-on" : ""}" data-adm="${x.id}">${x.label}</button>`).join("")}
+    window.mpSheet("Admin panel", `
+      <div class="pills" id="admTabs">
+        ${TABS.map(x => `<button class="pill ${x.id === A.tab ? "on" : ""}" data-adm="${x.id}">${ICO(x.ic, 14)}${x.label}</button>`).join("")}
       </div>
       <div id="admBody"><div class="skel"></div></div>`);
     el("admTabs").addEventListener("click", e => {
       const b = e.target.closest("[data-adm]");
       if (!b) return;
       A.tab = b.getAttribute("data-adm");
-      [...el("admTabs").children].forEach(c => c.classList.toggle("is-on", c === b));
+      [...el("admTabs").children].forEach(c => c.classList.toggle("on", c === b));
       renderTab();
     });
     renderTab();
@@ -70,39 +71,39 @@
       if (A.tab === "settings") return await tabSettings();
       if (A.tab === "cast") return tabCast();
     } catch (e) {
-      body(`<div class="err">${esc(errText(e))}</div>`);
+      body(`<div class="errline">${esc(errText(e))}</div>`);
     }
   }
 
-  /* ─────────── 📊 Umumiy ─────────── */
+  /* ─────────── Umumiy ─────────── */
   async function tabDash() {
     const d = await api("/api/admin/overview");
     body(`
       <div class="kpi">
-        <div class="kpi__box"><div class="kpi__v">${money(d.revenueDay)}</div><div class="kpi__l">Bugungi tushum</div></div>
-        <div class="kpi__box"><div class="kpi__v">${money(d.revenueWeek)}</div><div class="kpi__l">7 kunlik tushum</div></div>
-        <div class="kpi__box"><div class="kpi__v">${money(d.revenueAll)}</div><div class="kpi__l">Umumiy tushum</div></div>
-        <div class="kpi__box"><div class="kpi__v">${money(d.ordersAll)}</div><div class="kpi__l">Bajarilgan buyurtma</div></div>
-        <div class="kpi__box"><div class="kpi__v">${money(d.users)}</div><div class="kpi__l">Mijozlar</div></div>
-        <div class="kpi__box"><div class="kpi__v" style="color:var(--anor)">${d.pendingOrders + d.processingOrders}</div><div class="kpi__l">Ochiq buyurtma</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.revenueDay)}</div><div class="kpi-k">Bugungi tushum</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.revenueWeek)}</div><div class="kpi-k">7 kunlik tushum</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.revenueAll)}</div><div class="kpi-k">Umumiy tushum</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.ordersAll)}</div><div class="kpi-k">Bajarilgan buyurtma</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.users)}</div><div class="kpi-k">Mijozlar</div></div>
+        <div class="kpi-b"><div class="kpi-v" style="color:var(--clay)">${d.pendingOrders + d.processingOrders}</div><div class="kpi-k">Ochiq buyurtma</div></div>
       </div>
 
-      ${d.pendingPayments ? `<div class="card" style="padding:12px 14px;margin-top:11px;border-left:4px solid var(--anor)">
+      ${d.pendingPayments ? `<div class="ocard" style="margin:11px 0 0;border-left:2px solid var(--clay)">
         <b>${d.pendingPayments}</b> ta to'lov tasdiqlashni kutmoqda</div>` : ""}
 
       ${d.top && d.top.length ? `
-      <div class="divider"><span>Eng ko'p sotilgan</span></div>
-      <div class="rowlist" style="margin-top:10px">
-        ${d.top.map((x, i) => `<div class="rowcard">
-          <div class="rowcard__ico">${i + 1}</div>
-          <div class="rowcard__body"><div class="rowcard__title">${esc(x.title)}</div></div>
-          <div class="rowcard__end"><div class="rowcard__price">${x.n}</div></div>
+      <div class="sect"><h3>Eng ko'p sotilgan</h3></div>
+      <div class="rows" style="margin-top:10px">
+        ${d.top.map((x, i) => `<div class="row">
+          <div class="row-ic">${i + 1}</div>
+          <div class="row-b"><div class="row-t">${esc(x.title)}</div></div>
+          <div class="row-e"><div class="row-p">${x.n}</div></div>
         </div>`).join("")}
       </div>` : ""}
 
-      <div class="adm-actions">
-        <button class="btn btn--line" id="admExport">⬇️ CSV Telegramga</button>
-        <button class="btn btn--line" id="admReload">🔄 Yangilash</button>
+      <div class="acts">
+        <button class="btn btn--line btn-sm" id="admExport">${ICO("download",14)}CSV Telegramga</button>
+        <button class="btn btn--line btn-sm" id="admReload">${ICO("refresh",14)}Yangilash</button>
       </div>`);
     el("admReload").onclick = renderTab;
     el("admExport").onclick = async () => {
@@ -116,7 +117,7 @@
     };
   }
 
-  /* ─────────── 🧾 Buyurtmalar ─────────── */
+  /* ─────────── Buyurtmalar ─────────── */
   const OSTATUS = [
     { id: "new", label: "Yangi" }, { id: "processing", label: "Jarayonda" },
     { id: "done", label: "Bajarilgan" }, { id: "canceled", label: "Bekor" }, { id: "all", label: "Hammasi" }
@@ -125,33 +126,33 @@
   async function tabOrders() {
     const list = await api("/api/admin/orders?status=" + encodeURIComponent(A.orderFilter));
     body(`
-      <div class="adm-tabs">
-        ${OSTATUS.map(s => `<button class="adm-tab ${s.id === A.orderFilter ? "is-on" : ""}" data-ost="${s.id}">${s.label}</button>`).join("")}
+      <div class="pills">
+        ${OSTATUS.map(s => `<button class="pill ${s.id === A.orderFilter ? "on" : ""}" data-ost="${s.id}">${s.label}</button>`).join("")}
       </div>
       ${list.length ? list.map(o => `
         <div class="ocard">
-          <div class="ocard__top">
-            <span class="ocard__no">#${o.seq} ${esc(o.itemIcon || "")} ${esc(o.itemTitle)}</span>
-            <span class="pill pill--${esc(o.status)}">${t("st." + o.status)}</span>
+          <div class="oc-top">
+            <span class="oc-n">#${o.seq} ${esc(o.itemIcon || "")} ${esc(o.itemTitle)}</span>
+            <span class="tag tag--${esc(o.status)}">${t("st." + o.status)}</span>
           </div>
-          <div class="ocard__body">
+          <div class="oc-b">
             ${esc(o.tierLabel)}${o.qty > 1 ? " × " + o.qty : ""} · <b>${som(o.total)}</b>
-            <div style="margin-top:6px;font-weight:700">→ <span data-copy="${esc(o.target)}" style="text-decoration:underline dotted">${esc(o.target)}</span></div>
-            ${o.comment ? `<div class="tiny muted" style="margin-top:4px">💬 ${esc(o.comment)}</div>` : ""}
+            <div><span class="oc-target" data-copy="${esc(o.target)}">${esc(o.target)}</span></div>
+            ${o.comment ? `<div class="tiny mut" style="margin-top:4px">${esc(o.comment)}</div>` : ""}
           </div>
-          <div class="ocard__meta">
-            <span>🕘 ${dt(o.ts)}</span>
-            <span data-copy="${esc(o.uid)}">👤 ${o.username ? "@" + esc(o.username) : esc(o.uid)}</span>
-            ${o.promoCode ? `<span>🎟 ${esc(o.promoCode)}</span>` : ""}
+          <div class="oc-m">
+            <span>${ICO("clock", 12)}${dt(o.ts)}</span>
+            <span data-copy="${esc(o.uid)}">${ICO("user", 12)}${o.username ? "@" + esc(o.username) : esc(o.uid)}</span>
+            ${o.promoCode ? `<span>${ICO("tag", 12)}${esc(o.promoCode)}</span>` : ""}
           </div>
           ${o.status === "new" || o.status === "processing" ? `
-          <div class="adm-actions">
-            ${o.status === "new" ? `<button class="btn btn--line" data-ord="processing" data-id="${esc(o.id)}">⏳ Olindi</button>` : ""}
-            <button class="btn btn--teal" data-ord="done" data-id="${esc(o.id)}">✅ Bajarildi</button>
-            <button class="btn btn--anor" data-ord="cancel" data-id="${esc(o.id)}">❌ Bekor</button>
+          <div class="acts">
+            ${o.status === "new" ? `<button class="btn btn--line btn-sm" data-ord="processing" data-id="${esc(o.id)}">${ICO("clock",14)}Olindi</button>` : ""}
+            <button class="btn btn--acc btn-sm" data-ord="done" data-id="${esc(o.id)}">${ICO("check",14)}Bajarildi</button>
+            <button class="btn btn--danger btn-sm" data-ord="cancel" data-id="${esc(o.id)}">${ICO("x",14)}Bekor</button>
           </div>` : ""}
         </div>`).join("")
-        : `<div class="empty"><div class="empty__ico">📭</div><div class="empty__t">Bo'sh</div></div>`}`);
+        : `<div class="empty">${ICO("box",34)}<div class="empty-t">Bo'sh</div></div>`}`);
 
     el("admBody").addEventListener("click", async e => {
       const f = e.target.closest("[data-ost]");
@@ -176,30 +177,30 @@
     });
   }
 
-  /* ─────────── 💳 To'lovlar ─────────── */
+  /* ─────────── To'lovlar ─────────── */
   async function tabPayments() {
     const list = await api("/api/admin/payments?status=pending");
     body(`
       <div class="hint" style="margin-bottom:10px">Bank SMS'idagi summa bilan solishtiring va tasdiqlang. Tasdiqlangach mijoz balansiga <b>asosiy summa</b> tushadi.</div>
       ${list.length ? list.map(p => `
         <div class="ocard">
-          <div class="ocard__top">
-            <span class="ocard__no" data-copy="${p.amount}">${som(p.amount)}</span>
-            <span class="pill pill--${esc(p.status)}">${p.claimedAt ? "🔔 To'ladim" : t("st." + p.status)}</span>
+          <div class="oc-top">
+            <span class="oc-n" data-copy="${p.amount}">${som(p.amount)}</span>
+            <span class="tag tag--${esc(p.status)}">${p.claimedAt ? "To'ladim" : t("st." + p.status)}</span>
           </div>
           <div class="ocard__body tiny">
             Hisobga tushadi: <b>${som(p.base || p.amount)}</b> · ${esc(p.cardType)} ${esc(p.cardNumber)}
           </div>
-          <div class="ocard__meta">
-            <span>🕘 ${dt(p.ts)}</span>
-            <span data-copy="${esc(p.uid)}">👤 ${p.username ? "@" + esc(p.username) : esc(p.uid)}</span>
+          <div class="oc-m">
+            <span>${ICO("clock", 12)}${dt(p.ts)}</span>
+            <span data-copy="${esc(p.uid)}">${ICO("user", 12)}${p.username ? "@" + esc(p.username) : esc(p.uid)}</span>
           </div>
-          <div class="adm-actions">
-            <button class="btn btn--teal" data-pay="confirm" data-id="${esc(p.id)}">✅ Tasdiqlash</button>
-            <button class="btn btn--anor" data-pay="reject" data-id="${esc(p.id)}">❌ Rad etish</button>
+          <div class="acts">
+            <button class="btn btn--acc btn-sm" data-pay="confirm" data-id="${esc(p.id)}">${ICO("check",14)}Tasdiqlash</button>
+            <button class="btn btn--danger btn-sm" data-pay="reject" data-id="${esc(p.id)}">${ICO("x",14)}Rad etish</button>
           </div>
         </div>`).join("")
-        : `<div class="empty"><div class="empty__ico">✨</div><div class="empty__t">Kutayotgan to'lov yo'q</div></div>`}`);
+        : `<div class="empty">${ICO("box",34)}<div class="empty-t">Kutayotgan to'lov yo'q</div></div>`}`);
 
     el("admBody").addEventListener("click", async e => {
       const c = e.target.closest("[data-copy]");
@@ -215,32 +216,32 @@
     });
   }
 
-  /* ─────────── 👥 Mijozlar ─────────── */
+  /* ─────────── Mijozlar ─────────── */
   async function tabUsers(query) {
     const list = await api("/api/admin/users" + (query ? "?q=" + encodeURIComponent(query) : ""));
     body(`
       <div style="display:flex;gap:8px">
         <input class="input" id="uq" placeholder="ID yoki @username" value="${esc(query || "")}">
-        <button class="btn btn--line" id="uqBtn" style="flex:none">🔍</button>
+        <button class="btn btn--line btn-sm" id="uqBtn" style="flex:none">${ICO("search",14)}</button>
       </div>
-      <div class="rowlist" style="margin-top:12px">
+      <div class="rows" style="margin-top:12px">
         ${list.length ? list.map(u => `
           <div class="ocard">
-            <div class="ocard__top">
-              <span class="ocard__no" data-copy="${esc(u.id)}">${u.username ? "@" + esc(u.username) : esc(u.firstName || u.id)}</span>
-              <span class="pill pill--${u.blocked ? "canceled" : "done"}">${u.blocked ? "Bloklangan" : "Aktiv"}</span>
+            <div class="oc-top">
+              <span class="oc-n" data-copy="${esc(u.id)}">${u.username ? "@" + esc(u.username) : esc(u.firstName || u.id)}</span>
+              <span class="tag tag--${u.blocked ? "canceled" : "done"}">${u.blocked ? "Bloklangan" : "Aktiv"}</span>
             </div>
             <div class="ocard__body tiny">
               Balans: <b>${som(u.balance)}</b> · Sarflagan: ${som(u.spent || 0)}
               ${u.refBy ? ` · Taklif: ${esc(u.refBy)}` : ""}
             </div>
-            <div class="ocard__meta"><span>ID: ${esc(u.id)}</span></div>
-            <div class="adm-actions">
-              <button class="btn btn--line" data-bal="${esc(u.id)}">💰 Balans ±</button>
-              <button class="btn btn--line" data-block="${esc(u.id)}" data-on="${u.blocked ? "0" : "1"}">${u.blocked ? "🔓 Ochish" : "🔒 Bloklash"}</button>
+            <div class="oc-m"><span>ID: ${esc(u.id)}</span></div>
+            <div class="acts">
+              <button class="btn btn--line btn-sm" data-bal="${esc(u.id)}">${ICO("wallet",14)}Balans ±</button>
+              <button class="btn btn--line btn-sm" data-block="${esc(u.id)}" data-on="${u.blocked ? "0" : "1"}">${u.blocked ? ICO("eye", 14) + "Ochish" : ICO("lock", 14) + "Bloklash"}</button>
             </div>
           </div>`).join("")
-          : `<div class="empty"><div class="empty__ico">🔍</div><div class="empty__t">Topilmadi</div></div>`}
+          : `<div class="empty"><div class="empty-i">${ICO("search",14)}</div><div class="empty-t">Topilmadi</div></div>`}
       </div>`);
 
     el("uqBtn").onclick = () => tabUsers(el("uq").value.trim());
@@ -275,32 +276,32 @@
     });
   }
 
-  /* ─────────── 📦 Katalog ─────────── */
+  /* ─────────── Katalog ─────────── */
   async function tabCatalog() {
     A.catalog = await api("/api/admin/catalog");
     renderCatalog();
   }
   function renderCatalog() {
     body(`
-      <div class="adm-actions" style="margin-top:0">
-        <button class="btn btn--gold" id="catSave">💾 Nashr qilish</button>
-        <button class="btn btn--line" id="catAdd">➕ Mahsulot</button>
+      <div class="acts" style="margin-top:0">
+        <button class="btn btn--gold" id="catSave">${ICO("send",14)}Nashr qilish</button>
+        <button class="btn btn--line btn-sm" id="catAdd">${ICO("plus",14)}Mahsulot</button>
       </div>
       <div class="hint">O'zgarishlar faqat “Nashr qilish” bosilganda barcha mijozlarga tarqaladi.</div>
-      <div class="rowlist" style="margin-top:12px">
+      <div class="rows" style="margin-top:12px">
         ${A.catalog.map((it, i) => `
           <div class="ocard">
-            <div class="ocard__top">
-              <span class="ocard__no">${esc(it.icon || "🎁")} ${esc(window.I18N.pick(it.title) || it.id)}</span>
-              <span class="pill pill--${it.active === false ? "canceled" : "done"}">${it.active === false ? "Yopiq" : "Aktiv"}</span>
+            <div class="oc-top">
+              <span class="oc-n">${ICO(it.icon || "gift", 16)}<span>${esc(window.I18N.pick(it.title) || it.id)}</span></span>
+              <span class="tag tag--${it.active === false ? "canceled" : "done"}">${it.active === false ? "Yopiq" : "Aktiv"}</span>
             </div>
             <div class="ocard__body tiny muted">${esc(it.group || "")} · ${it.category === "telegram" ? "Telegram" : "O'yin"} · ${(it.tiers || []).length} paket</div>
-            <div class="adm-actions">
-              <button class="btn btn--line" data-cedit="${i}">✏️ Tahrirlash</button>
-              <button class="btn btn--line" data-ctoggle="${i}">${it.active === false ? "👁 Yoqish" : "🚫 O'chirish"}</button>
-              <button class="btn btn--line" data-cup="${i}">↑</button>
-              <button class="btn btn--line" data-cdown="${i}">↓</button>
-              <button class="btn btn--anor" data-cdel="${i}">🗑</button>
+            <div class="acts">
+              <button class="btn btn--line btn-sm" data-cedit="${i}">${ICO("edit",14)}Tahrirlash</button>
+              <button class="btn btn--line btn-sm" data-ctoggle="${i}">${it.active === false ? ICO("eye", 14) + "Yoqish" : ICO("eyeoff", 14) + "Yashirish"}</button>
+              <button class="btn btn--line btn-sm" data-cup="${i}">&uarr;</button>
+              <button class="btn btn--line btn-sm" data-cdown="${i}">&darr;</button>
+              <button class="btn btn--danger btn-sm" data-cdel="${i}">${ICO("trash",14)}</button>
             </div>
           </div>`).join("")}
       </div>`);
@@ -314,7 +315,7 @@
     };
     el("catAdd").onclick = () => {
       A.catalog.push({
-        id: "it_" + Date.now().toString(36), category: "game", group: "Yangi guruh", icon: "🎮",
+        id: "it_" + Date.now().toString(36), category: "game", group: "Yangi guruh", icon: "pad",
         title: { uz: "Yangi mahsulot", ru: "Новый товар" }, field: "playerId",
         note: { uz: "", ru: "" }, active: true,
         tiers: [{ id: "t1", label: { uz: "Paket 1", ru: "Пакет 1" }, price: 10000, old: 0, badge: "", qty: 0, active: true }]
@@ -343,35 +344,35 @@
   function editItem(i) {
     const it = A.catalog[i];
     body(`
-      <button class="btn btn--line" id="catBack" style="margin-bottom:12px">← ${t("common.back")}</button>
-      <div class="field"><label class="field__label">Bo'lim</label>
-        <select class="select" id="fCat">
-          <option value="game" ${it.category === "game" ? "selected" : ""}>🎮 O'yinlar</option>
-          <option value="telegram" ${it.category === "telegram" ? "selected" : ""}>✈️ Telegram</option>
+      <button class="btn btn--line btn-sm" id="catBack" style="margin-bottom:12px">${ICO("back",14)}${t("common.back")}</button>
+      <div class="fld"><label class="lbl">Bo'lim</label>
+        <select class="input" id="fCat">
+          <option value="game" ${it.category === "game" ? "selected" : ""}>O'yinlar</option>
+          <option value="telegram" ${it.category === "telegram" ? "selected" : ""}>Telegram</option>
         </select></div>
-      <div class="field"><label class="field__label">Guruh (o'yin/xizmat nomi)</label>
+      <div class="fld"><label class="lbl">Guruh (o'yin/xizmat nomi)</label>
         <input class="input" id="fGroup" value="${esc(it.group || "")}"></div>
-      <div class="field"><label class="field__label">Ikonka (emoji)</label>
+      <div class="fld"><label class="lbl">Ikonka (emoji)</label>
         <input class="input" id="fIcon" value="${esc(it.icon || "")}" maxlength="4"></div>
-      <div class="field"><label class="field__label">Nomi (UZ)</label>
+      <div class="fld"><label class="lbl">Nomi (UZ)</label>
         <input class="input" id="fTitleUz" value="${esc((it.title || {}).uz || "")}"></div>
-      <div class="field"><label class="field__label">Nomi (RU)</label>
+      <div class="fld"><label class="lbl">Nomi (RU)</label>
         <input class="input" id="fTitleRu" value="${esc((it.title || {}).ru || "")}"></div>
-      <div class="field"><label class="field__label">Mijozdan so'raladigan ma'lumot</label>
-        <select class="select" id="fField">
+      <div class="fld"><label class="lbl">Mijozdan so'raladigan ma'lumot</label>
+        <select class="input" id="fField">
           ${FIELDS.map(f => `<option value="${f[0]}" ${it.field === f[0] ? "selected" : ""}>${f[1]}</option>`).join("")}
         </select></div>
-      <div class="field"><label class="field__label">Eslatma (UZ)</label>
+      <div class="fld"><label class="lbl">Eslatma (UZ)</label>
         <textarea class="textarea" id="fNoteUz">${esc((it.note || {}).uz || "")}</textarea></div>
-      <div class="field"><label class="field__label">Eslatma (RU)</label>
+      <div class="fld"><label class="lbl">Eslatma (RU)</label>
         <textarea class="textarea" id="fNoteRu">${esc((it.note || {}).ru || "")}</textarea></div>
 
-      <div class="divider"><span>Paketlar</span></div>
+      <div class="sect"><h3>Paketlar</h3></div>
       <div id="tierRows">
         ${(it.tiers || []).map((x, k) => tierRow(x, k)).join("")}
       </div>
-      <button class="btn btn--line btn--wide" id="tierAdd" style="margin-top:9px">➕ Paket qo'shish</button>
-      <button class="btn btn--gold btn--wide" id="itemOk" style="margin-top:14px">✔️ Saqlash</button>
+      <button class="btn btn--line btn-w" id="tierAdd" style="margin-top:9px">${ICO("plus",14)}Paket qo'shish</button>
+      <button class="btn btn--gold btn-w" id="itemOk" style="margin-top:14px">${ICO("check",14)}Saqlash</button>
       <div class="hint">Saqlagach “Nashr qilish” tugmasini bosishni unutmang.</div>`);
 
     el("catBack").onclick = renderCatalog;
@@ -406,10 +407,10 @@
   }
 
   function tierRow(x, k) {
-    return `<div class="card" style="padding:11px;margin-top:9px">
+    return `<div class="editrow">
       <div style="display:flex;gap:7px;align-items:center">
         <b class="tiny">Paket ${k + 1}</b>
-        <button class="btn btn--anor" data-tdel style="margin-left:auto;padding:5px 10px;font-size:12px">🗑</button>
+        <button class="btn btn--danger btn-sm" data-tdel style="margin-left:auto;padding:5px 10px;font-size:12px">${ICO("trash",14)}</button>
       </div>
       <input type="hidden" data-k="id" value="${esc(x.id || "")}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px">
@@ -423,37 +424,37 @@
     </div>`;
   }
 
-  /* ─────────── 🎟 Promokod ─────────── */
+  /* ─────────── Promokod ─────────── */
   async function tabPromo() {
     const s = await api("/api/admin/settings");
     A.settings = s;
     body(`
-      <div class="card" style="padding:13px">
+      <div class="ocard" style="margin:0">
         <b>Yangi promokod</b>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px">
           <input class="input" id="pCode" placeholder="MILLIY10" style="text-transform:uppercase">
-          <select class="select" id="pType"><option value="percent">Foiz %</option><option value="fixed">So'm</option></select>
+          <select class="input" id="pType"><option value="percent">Foiz %</option><option value="fixed">So'm</option></select>
           <input class="input" id="pValue" inputmode="numeric" placeholder="Qiymat (10)">
           <input class="input" id="pMin" inputmode="numeric" placeholder="Min. buyurtma">
-          <input class="input" id="pMax" inputmode="numeric" placeholder="Umumiy limit (0 = ∞)">
+          <input class="input" id="pMax" inputmode="numeric" placeholder="Umumiy limit (0 = cheksiz)">
           <input class="input" id="pPer" inputmode="numeric" placeholder="1 kishiga" value="1">
         </div>
-        <button class="btn btn--gold btn--wide" id="pAdd" style="margin-top:10px">➕ Qo'shish</button>
+        <button class="btn btn--gold btn-w" id="pAdd" style="margin-top:10px">${ICO("plus",14)}Qo'shish</button>
       </div>
-      <div class="rowlist" style="margin-top:12px">
+      <div class="rows" style="margin-top:12px">
         ${(s.promos || []).length ? s.promos.map(p => `
-          <div class="rowcard">
-            <div class="rowcard__ico">🎟</div>
-            <div class="rowcard__body">
-              <div class="rowcard__title">${esc(p.code)} · ${p.type === "fixed" ? som(p.value) : p.value + "%"}</div>
-              <div class="rowcard__sub">Ishlatilgan: ${p.usedCount || 0}${p.maxUses ? " / " + p.maxUses : ""}${p.minOrder ? " · min " + som(p.minOrder) : ""}</div>
+          <div class="row">
+            <div class="row-ic">${ICO("tag",19)}</div>
+            <div class="row-b">
+              <div class="row-t">${esc(p.code)} · ${p.type === "fixed" ? som(p.value) : p.value + "%"}</div>
+              <div class="row-s">Ishlatilgan: ${p.usedCount || 0}${p.maxUses ? " / " + p.maxUses : ""}${p.minOrder ? " · min " + som(p.minOrder) : ""}</div>
             </div>
-            <div class="rowcard__end" style="display:flex;gap:5px">
-              <button class="btn btn--line" data-ptog="${esc(p.code)}" style="padding:6px 9px">${p.active ? "🟢" : "⚪"}</button>
-              <button class="btn btn--anor" data-pdel="${esc(p.code)}" style="padding:6px 9px">🗑</button>
+            <div class="row-e" style="display:flex;gap:5px">
+              <button class="btn btn--line btn-sm" data-ptog="${esc(p.code)}" style="padding:6px 9px">${p.active ? ICO("eye", 14) : ICO("eyeoff", 14)}</button>
+              <button class="btn btn--danger btn-sm" data-pdel="${esc(p.code)}" style="padding:6px 9px">${ICO("trash",14)}</button>
             </div>
           </div>`).join("")
-          : `<div class="empty"><div class="empty__ico">🎟</div><div class="empty__t">Promokod yo'q</div></div>`}
+          : `<div class="empty"><div class="empty-i">${ICO("tag",19)}</div><div class="empty-t">Promokod yo'q</div></div>`}
       </div>`);
 
     el("pAdd").onclick = async () => {
@@ -487,48 +488,48 @@
     });
   }
 
-  /* ─────────── ⚙️ Sozlamalar ─────────── */
+  /* ─────────── Sozlamalar ─────────── */
   async function tabSettings() {
     const s = await api("/api/admin/settings");
     A.settings = s;
     body(`
-      <div class="divider"><span>Do'kon</span></div>
-      <div class="field"><label class="field__label">Nomi</label><input class="input" id="sBrand" value="${esc(s.shop.brand)}"></div>
-      <div class="field"><label class="field__label">Support username (@ siz)</label><input class="input" id="sSup" value="${esc(s.shop.supportUsername)}"></div>
-      <div class="field"><label class="field__label">Kanal havolasi</label><input class="input" id="sChan" value="${esc(s.shop.channelUrl)}"></div>
-      <div class="field"><label class="field__label">Sharhlar havolasi</label><input class="input" id="sRev" value="${esc(s.shop.reviewsUrl)}"></div>
-      <div class="field"><label class="field__label">Ish vaqti</label><input class="input" id="sHours" value="${esc(s.shop.workHours)}"></div>
-      <div class="field"><label class="field__label">E'lon (UZ)</label><textarea class="textarea" id="sNoteUz">${esc(s.shop.noticeUz)}</textarea></div>
-      <div class="field"><label class="field__label">E'lon (RU)</label><textarea class="textarea" id="sNoteRu">${esc(s.shop.noticeRu)}</textarea></div>
+      <div class="sect"><h3>Do'kon</h3></div>
+      <div class="fld"><label class="lbl">Nomi</label><input class="input" id="sBrand" value="${esc(s.shop.brand)}"></div>
+      <div class="fld"><label class="lbl">Support username (@ siz)</label><input class="input" id="sSup" value="${esc(s.shop.supportUsername)}"></div>
+      <div class="fld"><label class="lbl">Kanal havolasi</label><input class="input" id="sChan" value="${esc(s.shop.channelUrl)}"></div>
+      <div class="fld"><label class="lbl">Sharhlar havolasi</label><input class="input" id="sRev" value="${esc(s.shop.reviewsUrl)}"></div>
+      <div class="fld"><label class="lbl">Ish vaqti</label><input class="input" id="sHours" value="${esc(s.shop.workHours)}"></div>
+      <div class="fld"><label class="lbl">E'lon (UZ)</label><textarea class="textarea" id="sNoteUz">${esc(s.shop.noticeUz)}</textarea></div>
+      <div class="fld"><label class="lbl">E'lon (RU)</label><textarea class="textarea" id="sNoteRu">${esc(s.shop.noticeRu)}</textarea></div>
 
-      <div class="divider"><span>Kartalar</span></div>
+      <div class="sect"><h3>Kartalar</h3></div>
       <div id="cardRows">${(s.cards || []).map(cardRow).join("")}</div>
-      <button class="btn btn--line btn--wide" id="cardAdd" style="margin-top:9px">➕ Karta</button>
+      <button class="btn btn--line btn-w" id="cardAdd" style="margin-top:9px">${ICO("plus",14)}Karta</button>
 
-      <div class="divider"><span>Kanallar (chat_id)</span></div>
-      <div class="field"><label class="field__label">🛍 Buyurtmalar</label>
+      <div class="sect"><h3>Kanallar (chat_id)</h3></div>
+      <div class="fld"><label class="lbl">Buyurtmalar kanali</label>
         <div style="display:flex;gap:7px"><input class="input" id="chOrder" value="${esc(s.channels.order)}">
-        <button class="btn btn--line" data-chtest="chOrder" style="flex:none">📤</button></div></div>
-      <div class="field"><label class="field__label">💳 To'lovlar (SMS botlari shu yerda bo'lsin)</label>
+        <button class="btn btn--line btn-sm" data-chtest="chOrder" style="flex:none">${ICO("send",14)}</button></div></div>
+      <div class="fld"><label class="lbl">To'lovlar kanali (SMS botlari shu yerda)</label>
         <div style="display:flex;gap:7px"><input class="input" id="chTopup" value="${esc(s.channels.topup)}">
-        <button class="btn btn--line" data-chtest="chTopup" style="flex:none">📤</button></div></div>
-      <div class="field"><label class="field__label">📝 Loglar</label>
+        <button class="btn btn--line btn-sm" data-chtest="chTopup" style="flex:none">${ICO("send",14)}</button></div></div>
+      <div class="fld"><label class="lbl">Loglar kanali</label>
         <div style="display:flex;gap:7px"><input class="input" id="chLog" value="${esc(s.channels.log)}">
-        <button class="btn btn--line" data-chtest="chLog" style="flex:none">📤</button></div></div>
+        <button class="btn btn--line btn-sm" data-chtest="chLog" style="flex:none">${ICO("send",14)}</button></div></div>
 
-      <div class="divider"><span>Referal</span></div>
-      <div class="field"><label class="field__label">
+      <div class="sect"><h3>Referal</h3></div>
+      <div class="fld"><label class="lbl">
         <input type="checkbox" id="rEn" ${s.referral.enabled ? "checked" : ""}> Yoqilgan</label></div>
-      <div class="field"><label class="field__label">Har xariddan foiz (%)</label>
+      <div class="fld"><label class="lbl">Har xariddan foiz (%)</label>
         <input class="input" id="rPct" inputmode="numeric" value="${s.referral.percent}"></div>
 
-      <div class="divider"><span>Sodiqlik darajalari</span></div>
-      <div class="field"><label class="field__label">
+      <div class="sect"><h3>Sodiqlik darajalari</h3></div>
+      <div class="fld"><label class="lbl">
         <input type="checkbox" id="lEn" ${s.loyalty.enabled ? "checked" : ""}> Yoqilgan</label></div>
       <div id="tierCfg">${(s.loyalty.tiers || []).map(loyRow).join("")}</div>
-      <button class="btn btn--line btn--wide" id="loyAdd" style="margin-top:9px">➕ Daraja</button>
+      <button class="btn btn--line btn-w" id="loyAdd" style="margin-top:9px">${ICO("plus",14)}Daraja</button>
 
-      <button class="btn btn--gold btn--wide" id="setSave" style="margin-top:16px">💾 Saqlash</button>
+      <button class="btn btn--gold btn-w" id="setSave" style="margin-top:16px">${ICO("check",14)}Saqlash</button>
       <div class="hint">Adminlar: ${(s.adminIds || []).join(", ") || "—"} (ADMIN_IDS env orqali).</div>`);
 
     el("cardAdd").onclick = () => {
@@ -549,7 +550,7 @@
         const chatId = el(ct.getAttribute("data-chtest")).value.trim();
         try {
           await api("/api/admin/channel-test", { body: { chatId } });
-          toast("Yuborildi ✅", "ok");
+          toast("Yuborildi", "ok");
         } catch (err) { toast((err.data && err.data.error) || errText(err), "err"); }
       }
     });
@@ -588,10 +589,10 @@
   }
 
   function cardRow(c) {
-    return `<div class="card" style="padding:11px;margin-top:9px">
+    return `<div class="editrow">
       <input type="hidden" data-k="id" value="${esc(c.id || "")}">
       <div style="display:grid;grid-template-columns:1fr 2fr;gap:7px">
-        <select class="select" data-k="type">
+        <select class="input" data-k="type">
           <option ${c.type === "HUMO" ? "selected" : ""}>HUMO</option>
           <option ${c.type === "UZCARD" ? "selected" : ""}>UZCARD</option>
         </select>
@@ -599,7 +600,7 @@
       </div>
       <div style="display:flex;gap:7px;margin-top:7px">
         <input class="input" data-k="holder" placeholder="KARTA EGASI" value="${esc(c.holder || "")}">
-        <button class="btn btn--anor" data-rowdel style="flex:none;padding:8px 12px">🗑</button>
+        <button class="btn btn--danger btn-sm" data-rowdel style="flex:none;padding:8px 12px">${ICO("trash",14)}</button>
       </div>
     </div>`;
   }
@@ -608,17 +609,17 @@
       <input class="input" data-k="name" placeholder="Nom" value="${esc(x.name || "")}">
       <input class="input" data-k="min" inputmode="numeric" placeholder="Summa" value="${Number(x.minSpent) || 0}">
       <input class="input" data-k="pct" inputmode="numeric" placeholder="%" value="${Number(x.percent) || 0}">
-      <button class="btn btn--anor" data-rowdel style="padding:8px 11px">🗑</button>
+      <button class="btn btn--danger btn-sm" data-rowdel style="padding:8px 11px">${ICO("trash",14)}</button>
     </div>`;
   }
 
-  /* ─────────── 📢 Tarqatma ─────────── */
+  /* ─────────── Tarqatma ─────────── */
   function tabCast() {
     body(`
       <div class="hint">Xabar barcha bloklanmagan foydalanuvchilarga yuboriladi. HTML teglar (&lt;b&gt;, &lt;i&gt;, &lt;a&gt;) ishlaydi.</div>
       <div class="field"><textarea class="textarea" id="castText" style="min-height:150px" maxlength="3500"
-        placeholder="🇺🇿 Milliy Pin&#10;&#10;Yangi chegirmalar boshlandi!"></textarea></div>
-      <button class="btn btn--gold btn--wide" id="castSend">📢 Yuborish</button>`);
+        placeholder="Milliy Pin&#10;&#10;Yangi chegirmalar boshlandi!"></textarea></div>
+      <button class="btn btn--gold btn-w" id="castSend">${ICO("send",14)}Yuborish</button>`);
     el("castSend").onclick = async () => {
       const text = el("castText").value.trim();
       if (!text) return toast("Matn kiriting", "err");
@@ -629,7 +630,7 @@
         const r = await api("/api/admin/broadcast", { body: { text } });
         toast("Navbatga qo'yildi: " + r.queued, "ok");
       } catch (e) { toast(errText(e), "err"); }
-      b.disabled = false; b.textContent = "📢 Yuborish";
+      b.disabled = false; b.innerHTML = ICO("send", 14) + "Yuborish";
     };
   }
 })();

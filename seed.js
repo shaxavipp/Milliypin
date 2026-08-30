@@ -21,7 +21,7 @@ const T = (id, group, icon, title, field, note, tiers) => ({
 
 const CATALOG = [
   /* ---------------- Telegram xizmatlari ---------------- */
-  T("tg-premium", "Telegram Premium", "👑", { uz: "Telegram Premium", ru: "Telegram Premium" }, "username",
+  T("tg-premium", "Telegram Premium", "crown", { uz: "Telegram Premium", ru: "Telegram Premium" }, "username",
     { uz: "Rasmiy obuna. @username to'g'ri yozilganiga ishonch hosil qiling.",
       ru: "Официальная подписка. Проверьте правильность @username." },
     [
@@ -30,28 +30,28 @@ const CATALOG = [
       { id: "p12", label: { uz: "12 oy", ru: "12 месяцев" }, price: 389000, old: 450000, badge: "-14%" }
     ]),
 
-  T("tg-stars", "Telegram Stars", "⭐", { uz: "Telegram Stars", ru: "Telegram Stars" }, "username",
+  T("tg-stars", "Telegram Stars", "star4", { uz: "Telegram Stars", ru: "Telegram Stars" }, "username",
     { uz: "Yulduzlar 5-15 daqiqada hisobingizga tushadi.",
       ru: "Звёзды зачисляются в течение 5-15 минут." },
     [
-      { id: "s50",   label: { uz: "50 ⭐", ru: "50 ⭐" },   price: 14000,  qty: 50 },
-      { id: "s100",  label: { uz: "100 ⭐", ru: "100 ⭐" },  price: 26000,  qty: 100, badge: "TOP" },
-      { id: "s250",  label: { uz: "250 ⭐", ru: "250 ⭐" },  price: 62000,  qty: 250 },
-      { id: "s500",  label: { uz: "500 ⭐", ru: "500 ⭐" },  price: 119000, qty: 500 },
-      { id: "s1000", label: { uz: "1000 ⭐", ru: "1000 ⭐" }, price: 232000, old: 250000, qty: 1000 }
+      { id: "s50",   label: { uz: "50 yulduz", ru: "50 звёзд" },   price: 14000,  qty: 50 },
+      { id: "s100",  label: { uz: "100 yulduz", ru: "100 звёзд" },  price: 26000,  qty: 100, badge: "TOP" },
+      { id: "s250",  label: { uz: "250 yulduz", ru: "250 звёзд" },  price: 62000,  qty: 250 },
+      { id: "s500",  label: { uz: "500 yulduz", ru: "500 звёзд" },  price: 119000, qty: 500 },
+      { id: "s1000", label: { uz: "1000 yulduz", ru: "1000 звёзд" }, price: 232000, old: 250000, qty: 1000 }
     ]),
 
-  T("tg-gift", "Telegram sovg'alari", "🎁", { uz: "Premium sovg'alar", ru: "Премиум подарки" }, "username",
+  T("tg-gift", "Telegram sovg'alari", "gift", { uz: "Premium sovg'alar", ru: "Премиум подарки" }, "username",
     { uz: "Sovg'a to'g'ridan-to'g'ri profilingizga yuboriladi.",
       ru: "Подарок отправляется прямо в ваш профиль." },
     [
-      { id: "g15",  label: { uz: "Ayiqcha · 15 ⭐", ru: "Мишка · 15 ⭐" },   price: 6000 },
-      { id: "g25",  label: { uz: "Yurak · 25 ⭐", ru: "Сердце · 25 ⭐" },    price: 9500 },
-      { id: "g50",  label: { uz: "Guldasta · 50 ⭐", ru: "Букет · 50 ⭐" },  price: 18000, badge: "TOP" },
-      { id: "g100", label: { uz: "Tort · 100 ⭐", ru: "Торт · 100 ⭐" },     price: 34000 }
+      { id: "g15",  label: { uz: "Ayiqcha · 15 yulduz", ru: "Мишка · 15 звёзд" },   price: 6000 },
+      { id: "g25",  label: { uz: "Yurak · 25 yulduz", ru: "Сердце · 25 звёзд" },    price: 9500 },
+      { id: "g50",  label: { uz: "Guldasta · 50 yulduz", ru: "Букет · 50 звёзд" },  price: 18000, badge: "TOP" },
+      { id: "g100", label: { uz: "Tort · 100 yulduz", ru: "Торт · 100 звёзд" },     price: 34000 }
     ]),
 
-  T("tg-members", "Kanal xizmatlari", "📣", { uz: "Kanal obunachilari", ru: "Подписчики канала" }, "link",
+  T("tg-members", "Kanal xizmatlari", "megaphone", { uz: "Kanal obunachilari", ru: "Подписчики канала" }, "link",
     { uz: "Kanal ochiq bo'lishi shart. Havolani to'liq yuboring.",
       ru: "Канал должен быть открытым. Отправьте полную ссылку." },
     [
@@ -60,7 +60,7 @@ const CATALOG = [
       { id: "m1000", label: { uz: "1000 obunachi", ru: "1000 подписчиков" }, price: 178000 }
     ]),
 
-  T("tg-views", "Kanal xizmatlari", "👁", { uz: "Post ko'rishlari", ru: "Просмотры поста" }, "link",
+  T("tg-views", "Kanal xizmatlari", "eye", { uz: "Post ko'rishlari", ru: "Просмотры поста" }, "link",
     { uz: "Postning to'g'ridan-to'g'ri havolasini yuboring.",
       ru: "Отправьте прямую ссылку на пост." },
     [
@@ -69,7 +69,7 @@ const CATALOG = [
       { id: "v10k", label: { uz: "10 000 ko'rish", ru: "10 000 просмотров" }, price: 61000 }
     ]),
 
-  T("tg-reactions", "Kanal xizmatlari", "❤️", { uz: "Reaksiyalar", ru: "Реакции" }, "link",
+  T("tg-reactions", "Kanal xizmatlari", "heart", { uz: "Reaksiyalar", ru: "Реакции" }, "link",
     { uz: "Post havolasi + kerakli reaksiya emojisini izohda yozing.",
       ru: "Ссылка на пост + нужный эмодзи укажите в комментарии." },
     [
@@ -78,7 +78,7 @@ const CATALOG = [
     ]),
 
   /* ---------------- O'yin donatlari ---------------- */
-  G("pubg", "PUBG Mobile", "🔫", { uz: "PUBG Mobile UC", ru: "PUBG Mobile UC" }, "playerId",
+  G("pubg", "PUBG Mobile", "target", { uz: "PUBG Mobile UC", ru: "PUBG Mobile UC" }, "playerId",
     { uz: "Player ID ni o'yin profilidan nusxalang (raqamlar).",
       ru: "Скопируйте Player ID из профиля игры (цифры)." },
     [
@@ -89,26 +89,26 @@ const CATALOG = [
       { id: "uc3850", label: { uz: "3850 UC", ru: "3850 UC" }, price: 668000, qty: 3850 }
     ]),
 
-  G("freefire", "Free Fire", "🔥", { uz: "Free Fire Olmos", ru: "Free Fire Алмазы" }, "playerId",
+  G("freefire", "Free Fire", "flame", { uz: "Free Fire Olmos", ru: "Free Fire Алмазы" }, "playerId",
     { uz: "Free Fire ID raqamingizni kiriting.", ru: "Введите ваш Free Fire ID." },
     [
-      { id: "d100", label: { uz: "100 💎", ru: "100 💎" }, price: 16000, qty: 100 },
-      { id: "d310", label: { uz: "310 💎", ru: "310 💎" }, price: 46000, qty: 310, badge: "TOP" },
-      { id: "d520", label: { uz: "520 💎", ru: "520 💎" }, price: 76000, qty: 520 },
-      { id: "d1060", label: { uz: "1060 💎", ru: "1060 💎" }, price: 150000, qty: 1060 }
+      { id: "d100", label: { uz: "100 olmos", ru: "100 алмазов" }, price: 16000, qty: 100 },
+      { id: "d310", label: { uz: "310 olmos", ru: "310 алмазов" }, price: 46000, qty: 310, badge: "TOP" },
+      { id: "d520", label: { uz: "520 olmos", ru: "520 алмазов" }, price: 76000, qty: 520 },
+      { id: "d1060", label: { uz: "1060 olmos", ru: "1060 алмазов" }, price: 150000, qty: 1060 }
     ]),
 
-  G("mlbb", "Mobile Legends", "⚔️", { uz: "Mobile Legends Olmos", ru: "Mobile Legends Алмазы" }, "playerZone",
+  G("mlbb", "Mobile Legends", "sword", { uz: "Mobile Legends Olmos", ru: "Mobile Legends Алмазы" }, "playerZone",
     { uz: "ID va Zone ID ni o'yin profilidan oling (masalan 12345678 (1234)).",
       ru: "Возьмите ID и Zone ID из профиля игры (например 12345678 (1234))." },
     [
-      { id: "ml86",  label: { uz: "86 💎", ru: "86 💎" },   price: 24000, qty: 86 },
-      { id: "ml172", label: { uz: "172 💎", ru: "172 💎" }, price: 46000, qty: 172, badge: "TOP" },
-      { id: "ml257", label: { uz: "257 💎", ru: "257 💎" }, price: 68000, qty: 257 },
-      { id: "ml706", label: { uz: "706 💎", ru: "706 💎" }, price: 182000, qty: 706 }
+      { id: "ml86",  label: { uz: "86 olmos", ru: "86 алмазов" },   price: 24000, qty: 86 },
+      { id: "ml172", label: { uz: "172 olmos", ru: "172 алмазов" }, price: 46000, qty: 172, badge: "TOP" },
+      { id: "ml257", label: { uz: "257 olmos", ru: "257 алмазов" }, price: 68000, qty: 257 },
+      { id: "ml706", label: { uz: "706 olmos", ru: "706 алмазов" }, price: 182000, qty: 706 }
     ]),
 
-  G("standoff", "Standoff 2", "🎯", { uz: "Standoff 2 Gold", ru: "Standoff 2 Голда" }, "nickname",
+  G("standoff", "Standoff 2", "coin", { uz: "Standoff 2 Gold", ru: "Standoff 2 Голда" }, "nickname",
     { uz: "O'yindagi nikingizni aniq yozing (katta-kichik harf muhim).",
       ru: "Укажите точный игровой ник (регистр важен)." },
     [
@@ -117,7 +117,7 @@ const CATALOG = [
       { id: "so800", label: { uz: "800 Gold", ru: "800 Gold" }, price: 112000, qty: 800 }
     ]),
 
-  G("brawl", "Brawl Stars", "💥", { uz: "Brawl Stars Gems", ru: "Brawl Stars Гемы" }, "nickname",
+  G("brawl", "Brawl Stars", "gem", { uz: "Brawl Stars Gems", ru: "Brawl Stars Гемы" }, "nickname",
     { uz: "Supercell ID pochtangiz bilan kirish talab qilinishi mumkin.",
       ru: "Может потребоваться вход через Supercell ID." },
     [
@@ -126,7 +126,7 @@ const CATALOG = [
       { id: "bs170", label: { uz: "170 Gems", ru: "170 Gems" }, price: 124000, qty: 170 }
     ]),
 
-  G("roblox", "Roblox", "🟥", { uz: "Roblox Robux", ru: "Roblox Robux" }, "nickname",
+  G("roblox", "Roblox", "box3", { uz: "Roblox Robux", ru: "Roblox Robux" }, "nickname",
     { uz: "Roblox username ingizni yozing (parol so'ralmaydi).",
       ru: "Укажите ваш Roblox username (пароль не требуется)." },
     [
@@ -135,7 +135,7 @@ const CATALOG = [
       { id: "rb1700", label: { uz: "1700 Robux", ru: "1700 Robux" }, price: 268000, qty: 1700 }
     ]),
 
-  G("codm", "Call of Duty Mobile", "🪖", { uz: "CODM CP", ru: "CODM CP" }, "playerId",
+  G("codm", "Call of Duty Mobile", "helmet", { uz: "CODM CP", ru: "CODM CP" }, "playerId",
     { uz: "Open ID ni o'yin sozlamalaridan nusxalang.",
       ru: "Скопируйте Open ID из настроек игры." },
     [
@@ -144,14 +144,14 @@ const CATALOG = [
       { id: "cp880", label: { uz: "880 CP", ru: "880 CP" }, price: 141000, qty: 880 }
     ]),
 
-  G("clash", "Clash of Clans", "🏰", { uz: "Clash of Clans Gems", ru: "Clash of Clans Гемы" }, "nickname",
+  G("clash", "Clash of Clans", "castle", { uz: "Clash of Clans Gems", ru: "Clash of Clans Гемы" }, "nickname",
     { uz: "Player Tag (#XXXXXX) ni yuboring.", ru: "Отправьте Player Tag (#XXXXXX)." },
     [
       { id: "cc500",  label: { uz: "500 Gems", ru: "500 Gems" },   price: 63000, qty: 500 },
       { id: "cc1200", label: { uz: "1200 Gems", ru: "1200 Gems" }, price: 138000, qty: 1200, badge: "TOP" }
     ]),
 
-  G("genshin", "Genshin Impact", "🌸", { uz: "Genshin Genesis Crystals", ru: "Genshin Кристаллы" }, "playerZone",
+  G("genshin", "Genshin Impact", "petal", { uz: "Genshin Genesis Crystals", ru: "Genshin Кристаллы" }, "playerZone",
     { uz: "UID va server (Asia/Europe/America) ni ko'rsating.",
       ru: "Укажите UID и сервер (Asia/Europe/America)." },
     [
@@ -161,4 +161,29 @@ const CATALOG = [
     ])
 ];
 
-module.exports = { CATALOG };
+// Eski o'rnatmalarda mahsulot ikonkasi emoji bo'lgan. Server ishga tushganda shu
+// jadval orqali bir marta chizilgan ikonka kalitiga ko'chiriladi (README'dagi
+// yangilanish qadamisiz). Ro'yxatda yo'q emoji "gift" ga tushadi.
+const ICON_FROM_EMOJI = {
+  "\u{1F451}": "crown", "\u2B50": "star4", "\u{1F381}": "gift", "\u{1F4E3}": "megaphone",
+  "\u{1F441}": "eye", "\u2764": "heart", "\u{1F52B}": "target", "\u{1F525}": "flame",
+  "\u2694": "sword", "\u{1F3AF}": "coin", "\u{1F4A5}": "gem", "\u{1F7E5}": "box3",
+  "\u{1FA96}": "helmet", "\u{1F3F0}": "castle", "\u{1F338}": "petal", "\u{1F3AE}": "pad",
+  "\u2708": "plane", "\u{1F4B3}": "card"
+};
+// Chizilgan ikonka kalitlari (icons.js dagi to'plam bilan bir xil bo'lishi shart)
+const ICON_KEYS = [
+  "crown", "star4", "star", "gift", "megaphone", "eye", "heart", "target", "flame",
+  "sword", "coin", "gem", "castle", "helmet", "box3", "petal", "pad", "plane", "card",
+  "wallet", "box", "users", "shield", "globe"
+];
+
+function normalizeIcon(raw) {
+  const v = String(raw || "").trim();
+  if (ICON_KEYS.indexOf(v) !== -1) return v;
+  // emoji variatsiya belgisi (U+FE0F) olib tashlanadi, keyin jadvaldan qidiriladi
+  const bare = v.replace(/\uFE0F/g, "");
+  return ICON_FROM_EMOJI[bare] || "gift";
+}
+
+module.exports = { CATALOG, ICON_KEYS, normalizeIcon };

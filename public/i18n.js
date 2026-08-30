@@ -1,10 +1,18 @@
 /* i18n.js — Milliy Pin interfeys matnlari (o'zbekcha va ruscha).
    Kalitlar nuqta bilan guruhlangan: "nav.home", "order.title" va h.k. */
 (function () {
-  "use strict";
+        "use strict";
 
   const DICT = {
     uz: {
+      "brand.sub": "Donat xizmati",
+      "home.pcs": "xizmat",
+      "topup.s1": "Kartaga aynan yuqoridagi summani o'tkazing — oxirgi raqamlar to'lovingizni tanib olish uchun.",
+      "topup.s2": "O'tkazma tugagach quyidagi tugmani bosing.",
+      "topup.s3": "Summa tasdiqlangach balansingiz avtomatik to'ladi (5-15 daqiqa).",
+      "profile.dark": "Tungi",
+      "profile.light": "Kunduzgi",
+      "ref.shareText": "Milliy Pin — Telegram xizmatlari va o'yin donatlari qulay narxda",
       "nav.home": "Bosh", "nav.tg": "Telegram", "nav.games": "O'yinlar",
       "nav.orders": "Buyurtma", "nav.profile": "Profil",
 
@@ -64,7 +72,7 @@
       "topup.copied": "Nusxa olindi",
       "topup.exact": "Aynan shu summani o'tkazing",
       "topup.exactHint": "Summa oxiridagi raqamlar to'lovingizni tanib olish uchun. Boshqa summa yuborilsa, tasdiqlash kechikadi.",
-      "topup.paid": "✅ To'lov qildim",
+      "topup.paid": "To'lov qildim",
       "topup.cancel": "Bekor qilish",
       "topup.left": "Qolgan vaqt",
       "topup.waiting": "To'lovingiz tekshirilmoqda. Odatda 5-15 daqiqa vaqt oladi.",
@@ -135,6 +143,14 @@
     },
 
     ru: {
+      "brand.sub": "Донат-сервис",
+      "home.pcs": "услуг",
+      "topup.s1": "Переведите на карту ровно указанную сумму — последние цифры нужны для распознавания платежа.",
+      "topup.s2": "После перевода нажмите кнопку ниже.",
+      "topup.s3": "Как только сумма подтвердится, баланс пополнится автоматически (5-15 минут).",
+      "profile.dark": "Тёмная",
+      "profile.light": "Светлая",
+      "ref.shareText": "Milliy Pin — услуги Telegram и донат в игры по выгодным ценам",
       "nav.home": "Главная", "nav.tg": "Telegram", "nav.games": "Игры",
       "nav.orders": "Заказы", "nav.profile": "Профиль",
 
@@ -194,7 +210,7 @@
       "topup.copied": "Скопировано",
       "topup.exact": "Переведите ровно эту сумму",
       "topup.exactHint": "Последние цифры суммы нужны для распознавания вашего платежа. Другая сумма задержит подтверждение.",
-      "topup.paid": "✅ Я оплатил",
+      "topup.paid": "Я оплатил",
       "topup.cancel": "Отменить",
       "topup.left": "Осталось",
       "topup.waiting": "Платёж проверяется. Обычно это занимает 5-15 минут.",
@@ -265,9 +281,9 @@
     }
   };
 
-  let lang = "uz";
-  try { lang = localStorage.getItem("mp_lang") || "uz"; } catch (e) {}
-  if (!DICT[lang]) lang = "uz";
+  let lang ="uz";
+  try { lang = localStorage.getItem("mp_lang") ||"uz"; } catch (e) {}
+  if (!DICT[lang]) lang ="uz";
 
   window.I18N = {
     get lang() { return lang; },
@@ -280,14 +296,14 @@
     // t("ref.desc", {p: 3}) — {p} kabi o'rniga qo'yish qo'llab-quvvatlanadi
     t(key, vars) {
       let s = (DICT[lang] && DICT[lang][key]) || (DICT.uz[key]) || key;
-      if (vars) Object.keys(vars).forEach(k => { s = s.split("{" + k + "}").join(vars[k]); });
+      if (vars) Object.keys(vars).forEach(k => { s = s.split("{" + k +"}").join(vars[k]); });
       return s;
     },
     // Ko'p tilli maydon: {uz:"...", ru:"..."} yoki oddiy satr
     pick(v) {
-      if (v == null) return "";
-      if (typeof v === "string") return v;
-      return v[lang] || v.uz || v.ru || "";
+      if (v == null) return"";
+      if (typeof v ==="string") return v;
+      return v[lang] || v.uz || v.ru ||"";
     },
     langs: ["uz", "ru"]
   };
