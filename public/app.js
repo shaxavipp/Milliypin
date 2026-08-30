@@ -305,10 +305,27 @@
     const st = S.stats;
     const top = S.catalog.filter(i => !i.maint).slice(0, 6);
 
+    // "Yana buyurtma qilish" — mijoz oxirgi olgan mahsulotlari. Doimiy
+    // xaridorlar uchun eng qisqa yo'l: katalogni qidirib o'tirmaydi.
+    const seen = [];
+    ((S.me && S.me.orders) || []).forEach(o => {
+      if (seen.length >= 6 || seen.indexOf(o.itemId) !== -1) return;
+      seen.push(o.itemId);
+    });
+    const recent = seen.map(id => S.catalog.find(x => x.id === id))
+      .filter(x => x && !x.maint).slice(0, 5);
+
     return `
       ${balanceCard()}
 
       ${notice ? `<div class="notice">${ICO("info", 15)}<span>${esc(notice)}</span></div>` : ""}
+
+      ${recent.length ? sect(t("home.again"), "", "refresh") + `<div class="strip">
+        ${recent.map(it => `<button class="stripi" data-item="${esc(it.id)}" data-glaze="${glazeOf(it.group || it.id)}">
+          <span class="stripi-ic">${ICO(it.icon, 20) || ICO("gift", 20)}</span>
+          <span class="stripi-t">${esc(pick(it.title))}</span>
+        </button>`).join("")}
+      </div>` : ""}
 
       ${sect(t("home.popular"), `<button class="more" data-go="catalog">${t("home.all")}</button>`, "palak")}
       <div class="grid">${top.map(tile).join("")}</div>
@@ -1204,7 +1221,11 @@
       null, { icon: ICO("tag", 20), glaze: 2 });
 
     el("promoSave").onclick = savePromo;
-    if (!S.promos.length) loadPromos().then(() => { if (!el("sheetWrap").hidden) openPromos(); });
+    // Ro'yxat hali yuklanmagan bo'lsa — yuklab, oynani yangilaymiz. Bu orada
+    // boshqa oyna ochilgan bo'lsa tegmaymiz (aks holda u almashib ketardi).
+    if (!S.promos.length) loadPromos().then(() => {
+      if (S.promos.length && el("sheetTitle").textContent === t("promo.title")) openPromos();
+    });
   }
 
   async function savePromo() {
