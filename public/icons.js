@@ -76,6 +76,25 @@
       'aria-hidden="true">' + body + '</svg>';
   };
 
+  /* ── Tarixiy me'moriy belgilar (chiziqli, 24×24) ──
+     Registon peshtoqi, Go'ri Amir gumbazi, minora — zamonaviy interfeys ustidagi
+     tarix qatlami. Ular bezak sifatida emas, bo'lim belgisi sifatida ishlatiladi. */
+  Object.assign(P, {
+    peshtoq: '<path d="M3 21V9.5L12 2l9 7.5V21"/><path d="M2 21h20"/>' +
+             '<path d="M8.5 21v-6.6c0-2 1.6-3.6 3.5-3.6s3.5 1.6 3.5 3.6V21"/>' +
+             '<path d="M12 2v2.4"/>',
+    gumbaz:  '<path d="M12 2.2c-3.4 2.4-5.4 5.3-5.4 8.4h10.8c0-3.1-2-6-5.4-8.4Z"/>' +
+             '<path d="M9.2 3.6c-.8 2.2-1.2 4.6-1.2 7M14.8 3.6c.8 2.2 1.2 4.6 1.2 7"/>' +
+             '<path d="M5.6 10.6h12.8v2.6H5.6Z"/><path d="M7.2 13.2V21h9.6v-7.8"/>' +
+             '<path d="M4 21h16"/><path d="M11 21v-3.4h2V21"/>',
+    minora:  '<path d="M9 21V7.4h6V21"/><path d="M7.6 21h8.8"/>' +
+             '<path d="M8.4 7.4 12 3.2l3.6 4.2"/><path d="M12 1.4v1.8"/>' +
+             '<path d="M9 11.4h6M9 15.4h6"/>',
+    palak:   '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.6"/>' +
+             '<path d="M12 3.4v3M12 17.6v3M3.4 12h3M17.6 12h3"/>' +
+             '<path d="m6 6 2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18"/>'
+  });
+
   /* Milliy naqsh bo'laklari — sarlavha ostidagi zanjira, ajratgich va medalyon.
      Kartochkalarga takrorlanuvchi fon sifatida emas, ramka sifatida qo'yiladi. */
   const ORN = {
@@ -101,6 +120,11 @@
       '<path d="M24 5c8 6 12 12 12 18a12 12 0 0 1-24 0c0-6 4-12 12-18Z"/>' +
       '<path d="M24 13c4 3.5 6 7 6 10.4a6 6 0 0 1-12 0C18 20 20 16.5 24 13Z"/></g></svg>'
   };
+
+  // Registon peshtoqi silueti — banner va sahifa sarlavhasi uchun keng SVG
+  ORN.iwan = '<svg viewBox="0 0 320 64" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path d="M0 64V26C0 26 22 26 30 26 38 26 44 12 60 12s22 14 30 14h140c8 0 14-14 30-14s22 14 30 14h30v38Z" ' +
+    'fill="none" stroke="currentColor" stroke-width="1.2" opacity=".5"/></svg>';
 
   const dataUri = (tpl, color) =>
     "url(\"data:image/svg+xml;utf8," + tpl.split("CLR").join(color).replace(/"/g, "'").replace(/#/g, "%23") + "\")";

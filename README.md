@@ -5,22 +5,40 @@ kunduzgi va tungi rejim.
 
 ## Dizayn tizimi
 
-Vizual manba — **Rishton kulolchiligi**. Kunduzgi mavzu "sopol va saman" (yonilgan loy,
-somon rangli qog'oz), tungi mavzu "ishkor" (ko'k-yashil sir, chiroq yorug'i).
+**Tarix va zamon birga.** Asos — zamonaviy tungi interfeys (shisha panellar, suzuvchi
+navigatsiya, zich koshin to'ri); ustiga Samarqand me'morchiligining chiziqli qatlami
+qo'yilgan. Kunduzgi mavzu — "saman va sopol" (Rishton kulolchiligi).
 
 | Qatlam | Yechim |
 |---|---|
-| Bezak | Girih (sakkiz qirrali yulduz) fon to'ri, koshin haoshiyasi (uchburchak-nuqta zanjirasi) sarlavha ostida va sheet tepasida, peshtoq yoyi — "Bosh" ikonkasi |
-| Ikonkalar | **Emoji yo'q.** 40 dan ortiq ikonka bitta qo'lda chizilgan: 24×24 to'r, 1.6px chiziq, yumaloq uchlar (`public/icons.js`) |
-| Shrift | `Archivo` — interfeys va sarlavhalar (siqiq harf oralig'i); `IBM Plex Mono` — barcha raqamlar, `tabular-nums` bilan (narxlar ustma-ust tekis turadi) |
-| Geometriya | Kichik radiuslar: karta 10px, yorliq 4px, tugma 10px. 4px to'r, zich matn |
-| Logotip | Girih yulduzi ichida "MP" tamg'asi — bitta SVG `<use>` orqali splash, sarlavha va favicon uchun |
-| Mahsulot to'ri | 3 ustunli koshin panel; har guruh o'z sir rangini oladi (feruza / sopol / zar / yashil) |
-| Yorliq | Faqat haqiqiy chegirma foizi (`−14%`) ko'rsatiladi — har mahsulotda turgan "TOP" ma'nosiz edi |
+| Palitra | Tungi lojuvard osmon `#070C18`, gumbaz feruzasi `#2FA8C4`, zar `#D6A94A`, sopol `#C4664A` |
+| Tarixiy belgilar | Go'ri Amir gumbazi (balans kartasi va banner), madrasa ayvoni — takrorlanuvchi sivri yoylar galereyasi (banner poydevori), Registon peshtoqi (navigatsiya va bo'lim sarlavhasi), minora, suzani palagi |
+| Bezak to'ri | Girih — sakkiz qirrali yulduz + burilgan kvadrat; koshin haoshiyasi (uchburchak-nuqta zanjirasi) sarlavha ostida |
+| Ikonkalar | **Emoji yo'q.** 45 dan ortiq ikonka bitta qo'lda chizilgan: 24×24 to'r, 1.6px chiziq (`public/icons.js`) |
+| Shrift | `Archivo` — interfeys; `IBM Plex Mono` + `tabular-nums` — barcha raqamlar |
+| Geometriya | Karta 12px, yorliq 4px, 3 ustunli to'r, 4px qadamli to'r |
+| Logotip | Girih yulduzi ichida gumbaz va "MP" tamg'asi — bitta SVG `<use>` orqali |
+
+## Ilova tuzilishi
+
+Pastki navigatsiya beshta bo'limdan iborat: **Bosh · O'yinlar · To'ldirish · Buyurtma · Profil**.
+Telegram xizmatlari alohida tab emas — ular umumiy katalog ichida, o'yinlar bilan bir qatorda
+turadi (Telegram Premium, Stars, sovg'alar, kanal xizmatlari).
+
+| Sahifa | Nimalar bor |
+|---|---|
+| **Bosh** | Salomlashuv, balans kartasi, tezkor tugmalar (promokod / yordam), banner, ommabop xizmatlar to'ri, statistika, sharhlar |
+| **O'yinlar** | Qidiruv, guruh filtrlari, 3 ustunli katalog. Har plitada reyting va chegirma foizi; texnik ishdagi xizmat xiralashadi va sotib olinmaydi |
+| **To'ldirish** | Balans, to'lov usullari (UZCARD / HUMO), eng kam summa, "Qanday to'ldirish?" va texnik yordam havolalari |
+| **Buyurtma** | Buyurtmalar va to'lovlar tarixi, bajarilganini baholash |
+| **Profil** | Statistika, daraja, promokod kiritish va mavjud promokodlar ro'yxati, referal va Top donaterlar kartochkalari, til/mavzu, yordam havolalari, admin panel |
+
+Mahsulot oynasi: sarlavha kartasi (o'yin nomi + valyuta turi), ID/username maydoni,
+paketlar ro'yxati, promokod, izoh, hisob-kitob va yopishqoq "Sotib olish" paneli.
 
 Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 
-| Bo'lim | Nimalar bor |
+| Yo'nalish | Nimalar bor |
 |---|---|
 | **Telegram xizmatlari** | Telegram Premium (3/6/12 oy), Telegram Stars, Premium sovg'alar, kanal obunachilari, post ko'rishlari, reaksiyalar |
 | **O'yin donatlari** | PUBG Mobile UC, Free Fire olmoslari, Mobile Legends olmoslari, Standoff 2 Gold, Brawl Stars Gems, Roblox Robux, CODM CP, Clash of Clans Gems, Genshin Impact Crystals |
@@ -36,6 +54,8 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 - Paket tanlash, promokod, izoh, mahsulotga mos ma'lumot maydoni
   (@username / Player ID / ID+Zone / nik / havola)
 - Buyurtmalar tarixi va bajarilgan buyurtmani baholash
+- Promokodni profilda saqlash — keyingi buyurtmaga avtomatik qo'llanadi
+- Top donaterlar reytingi (ismlar qisqartirilgan, ID ochilmaydi)
 - Referal dastur — do'st har xarid qilganda foiz balansga tushadi
 - Sodiqlik darajalari (Chinnigul → Zargar → Amir → Sohibqiron) va avtomatik keshbek
 - Buyurtma holati o'zgarganda botdan xabar keladi
@@ -45,7 +65,7 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 - Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
 - To'lovlar: kutayotgan to'lovni tasdiqlash yoki rad etish
 - Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
-- Katalog: mahsulot va paketlarni qo'shish/tahrirlash/tartiblash → **Nashr qilish**
+- Katalog: mahsulot va paketlarni qo'shish/tahrirlash/tartiblash, reyting va "texnik ish" holati → **Nashr qilish**
 - Promokodlar: foiz yoki so'mda, limit va min. buyurtma bilan
 - Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni
 - Tarqatma: barcha foydalanuvchilarga xabar
@@ -126,7 +146,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (8 bo'lim)
-test/run.js      38 ta integratsion test — npm test
+test/run.js      41 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -147,7 +167,8 @@ Test serverni vaqtinchalik papka bilan ko'taradi, sinov `BOT_TOKEN` orqali haqiq
 `initData` imzosini yasaydi va quyidagilarni tekshiradi: imzo tekshiruvi (buzilgan va eskirgan
 imzolar rad etilishi), SMS summasini o'qish, ruxsatlar (oddiy foydalanuvchi admin API'ga
 kira olmasligi), to'liq to'lov oqimi, buyurtma va pul qaytarish, promokod limitlari, sharhlar,
-katalogni nashr qilish, sozlamalar va sodiqlik darajalari.
+katalogni nashr qilish, sozlamalar, sodiqlik darajalari, ochiq promokodlar ro'yxati,
+Top donaterlar reytingi va texnik ishdagi mahsulotni sotib bo'lmasligi.
 
 ## Xavfsizlik
 

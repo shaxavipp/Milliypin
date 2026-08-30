@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="uz" data-theme="light">
+<html lang="uz" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#F3EADA">
+<meta name="theme-color" content="#070C18">
 <title>Milliy Pin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,17 +13,27 @@
 </head>
 <body>
 
-<!-- ══ Muhr: sakkiz qirrali girih yulduzi, ichida "MP" tamg'asi ══ -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- Muhr: sakkiz qirrali girih yulduzi, ichida gumbaz va "MP" tamg'asi -->
   <g id="seal">
     <g class="rot" fill="none" stroke="currentColor" stroke-linejoin="round">
       <path stroke-width="1.6" d="M32 3 39.4 24.6 61 32 39.4 39.4 32 61 24.6 39.4 3 32 24.6 24.6Z"/>
-      <rect stroke-width="1.1" x="13" y="13" width="38" height="38" transform="rotate(45 32 32)" opacity=".62"/>
+      <rect stroke-width="1.1" x="13" y="13" width="38" height="38" transform="rotate(45 32 32)" opacity=".6"/>
     </g>
     <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-      <circle cx="32" cy="32" r="12.4" opacity=".8"/>
+      <circle cx="32" cy="32" r="12.4" opacity=".75"/>
       <path d="M27.4 37.6V26.4l4.6 6 4.6-6v11.2"/>
     </g>
+  </g>
+  <!-- Go'ri Amir gumbazi — balans kartasi va banner uchun -->
+  <g id="dome" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M32 6c-9 6.4-14.4 14.2-14.4 22.4h28.8C46.4 20.2 41 12.4 32 6Z"/>
+    <path d="M24.6 9.8c-2.2 5.8-3.4 12-3.4 18.6M39.4 9.8c2.2 5.8 3.4 12 3.4 18.6"/>
+    <path d="M32 6V2"/>
+    <path d="M15.2 28.4h33.6v6.8H15.2Z"/>
+    <path d="M19.4 35.2V58h25.2V35.2"/>
+    <path d="M10 58h44"/>
+    <path d="M28.4 58V47.6a3.6 3.6 0 0 1 7.2 0V58"/>
   </g>
 </defs></svg>
 
@@ -31,7 +41,7 @@
   <div class="sp-seal"><svg viewBox="0 0 64 64"><use href="#seal"/></svg></div>
   <div>
     <div class="sp-name center">Milliy Pin</div>
-    <div class="sp-sub center">Telegram va o'yin donatlari</div>
+    <div class="sp-sub center">O'yin va raqamli xizmatlar</div>
   </div>
   <div class="sp-bar"><i></i></div>
 </div>
@@ -39,17 +49,8 @@
 <div id="app" hidden>
   <header class="topbar">
     <div class="tb-row">
-      <div class="mark">
-        <span class="mark-seal"><svg viewBox="0 0 64 64"><use href="#seal"/></svg></span>
-        <span class="mark-txt">
-          <span class="mark-name">Milliy Pin</span>
-          <span class="mark-sub" id="markSub">Donat xizmati</span>
-        </span>
-      </div>
+      <div class="hi" id="hiBox"></div>
       <div class="tb-act">
-        <button class="bal-pill" id="balPill" type="button">
-          <span id="balIco"></span><span class="num" id="balVal">0</span><span class="cur">so'm</span>
-        </button>
         <button class="iconbtn" id="langBtn" type="button" title="Til">UZ</button>
         <button class="iconbtn" id="themeBtn" type="button" title="Ko'rinish"></button>
       </div>
@@ -59,9 +60,7 @@
 
   <main id="view" class="view"></main>
 
-  <nav class="tabbar" id="tabbar">
-    <span class="tabpill" id="tabpill"></span>
-  </nav>
+  <nav class="tabbar" id="tabbar"><span class="tabpill" id="tabpill"></span></nav>
 </div>
 
 <div id="sheetWrap" hidden>

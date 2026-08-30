@@ -12,16 +12,19 @@
 
   const S = {
     tab: "home", config: null, catalog: [], me: null, reviews: [], stats: null,
-    pending: null, timerId: 0
+    promos: [], pending: null, timerId: 0,
+    query: "", group: "all", myPromo: ""
   };
   window.MP = S;
+
+  try { S.myPromo = localStorage.getItem("mp_promo") || ""; } catch (e) {}
 
   /* ══════════ Yordamchilar ══════════ */
 
   const nf = new Intl.NumberFormat("ru-RU");
   // ru-RU minglarni buzilmas probel bilan ajratadi; monoshriftda u juda keng chiqadi,
   // shu sabab ingichka probel (U+2009) ga almashtiriladi.
-  const money = n => nf.format(Math.round(Number(n) || 0)).replace(/\u00A0/g, "\u2009");
+  const money = n => nf.format(Math.round(Number(n) || 0)).replace(/ /g, " ");
   const som = n => money(n) + " " + t("common.som");
 
   function esc(s) {
@@ -63,6 +66,13 @@
     }
   }
   window.mpCopy = copy;
+
+  const openLink = url => {
+    if (!url) return;
+    if (tg && tg.openTelegramLink && /^https:\/\/t\.me\//.test(url)) tg.openTelegramLink(url);
+    else if (tg && tg.openLink) tg.openLink(url);
+    else window.open(url, "_blank");
+  };
 
   /* ══════════ API ══════════ */
 
@@ -115,29 +125,32 @@
   window.mpSheet = openSheet;
   window.mpCloseSheet = closeSheet;
 
-  /* ══════════ Mavzu ══════════ */
+  /* ══════════ Mavzu va til ══════════ */
 
   function applyTheme(mode) {
     document.documentElement.setAttribute("data-theme", mode);
     try { localStorage.setItem("mp_theme", mode); } catch (e) {}
     el("themeBtn").innerHTML = ICO(mode === "dark" ? "sun" : "moon", 16);
     const m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute("content", mode === "dark" ? "#0B1418" : "#F3EADA");
+    if (m) m.setAttribute("content", mode === "dark" ? "#070C18" : "#F3EADA");
   }
   const themeNow = () => document.documentElement.getAttribute("data-theme");
   function toggleTheme() { applyTheme(themeNow() === "dark" ? "light" : "dark"); render(); }
 
-  function toggleLang() {
-    const L = window.I18N.langs;
-    window.I18N.set(L[(L.indexOf(window.I18N.lang) + 1) % L.length]);
+  function setLang(l) {
+    window.I18N.set(l);
     el("langBtn").textContent = window.I18N.lang.toUpperCase();
     render();
   }
+  const toggleLang = () => {
+    const L = window.I18N.langs;
+    setLang(L[(L.indexOf(window.I18N.lang) + 1) % L.length]);
+  };
 
   /* ══════════ Umumiy bo'laklar ══════════ */
 
-  const sect = (title, more) =>
-    `<div class="sect"><h3>${title}</h3>${more || ""}</div>`;
+  const sect = (title, right, icon) =>
+    `<div class="sect">${icon ? ICO(icon, 15) : ""}<h3>${title}</h3>${right || ""}</div>`;
 
   const empty = (icon, title, sub) =>
     `<div class="empty">${ICO(icon, 34)}<div class="empty-t">${title}</div>${sub ? `<div class="empty-s">${sub}</div>` : ""}</div>`;
@@ -154,8 +167,7 @@
     return glazeMap[group];
   }
 
-  // Plitadagi yorliq — faqat haqiqiy chegirma bo'lganda. Har mahsulotda "TOP" turgani
-  // yorliqni ma'nosiz qilardi; chegirma foizi esa aniq ma'lumot beradi.
+  // Plitadagi yorliq — faqat haqiqiy chegirma bo'lganda
   function tileTag(it) {
     const d = (it.tiers || []).find(x => x.old && x.old > x.price);
     return d ? "−" + Math.round((1 - d.price / d.old) * 100) + "%" : "";
@@ -163,10 +175,14 @@
 
   function tile(it) {
     const tag = tileTag(it);
-    return `<button class="tile" data-item="${esc(it.id)}" data-glaze="${glazeOf(it.group || it.id)}">
+    const rate = Number(it.rating) || 5;
+    return `<button class="tile ${it.maint ? "maint" : ""}" data-item="${esc(it.id)}"
+      data-glaze="${glazeOf(it.group || it.id)}">
       <span class="tile-top">
-        ${tag ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
+        ${tag && !it.maint ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
+        ${it.maint ? `<span class="tile-maint">${t("maint")}</span>` : ""}
         ${ICO(it.icon, 26) || ICO("gift", 26)}
+        <span class="tile-rate">${ICO("star", 9)}${rate % 1 ? rate.toFixed(1) : rate}</span>
       </span>
       <span class="tile-body">
         <span class="tile-n">${esc(pick(it.title))}</span>
@@ -175,78 +191,72 @@
     </button>`;
   }
 
-  // Bo'lim bo'yicha tanlangan filtr (guruh nomi yoki "all")
-  const filter = { telegram: "all", game: "all" };
+  /* ══════════ Ko'rinish: Asosiy ══════════ */
 
-  function catalogView(cat) {
-    const items = S.catalog.filter(i => i.category === cat);
-    if (!items.length) return empty("box", t("cat.empty"));
-
-    // Har guruhda ko'pincha bitta mahsulot bo'ladi, shuning uchun guruhlar alohida
-    // bo'lim emas, filtr chiplari sifatida ko'rsatiladi — ro'yxat zich va qisqa qoladi.
-    const groups = [];
-    items.forEach(i => { const g = i.group || "—"; if (!groups.includes(g)) groups.push(g); });
-    const on = groups.includes(filter[cat]) ? filter[cat] : "all";
-    const shown = on === "all" ? items : items.filter(i => (i.group || "—") === on);
-
-    return `<div class="pills pills--v" data-filter="${cat}">
-        <button class="pill ${on === "all" ? "on" : ""}" data-f="all">${t("home.all")}</button>
-        ${groups.map(g => `<button class="pill ${on === g ? "on" : ""}" data-f="${esc(g)}">${esc(g)}</button>`).join("")}
-      </div>
-      <div class="grid">${shown.map(tile).join("")}</div>`;
-  }
-
-  /* ══════════ Ko'rinish: Bosh ══════════ */
-
-  function viewHome() {
+  // To'ldirish sahifasida tugma darhol summa oynasini ochadi, boshqa joyda —
+  // avval to'ldirish bo'limiga o'tkazadi.
+  function balanceCard(inTopup) {
     const bal = S.me ? S.me.balance : 0;
     const l = S.me && S.me.loyalty;
+    const act = inTopup ? 'data-act="topupOpen"' : 'data-go="topup"';
+    return `<section class="balcard">
+      <span class="dome"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
+      <div class="bal-head">
+        <div>
+          <span class="bal-k">${t("home.balance")}</span>
+          <div class="bal-v">${money(bal)}<span class="cur">${t("common.som")}</span></div>
+          ${l && l.current ? `<span class="bal-tier">${esc(l.current.name)}${l.current.percent ? " · " + l.current.percent + "%" : ""}</span>` : ""}
+        </div>
+      </div>
+      <div class="bal-acts">
+        <button class="btn btn--gold btn-1" ${act}>${ICO("plus")}${t("home.topup")}</button>
+        <button class="btn btn--line btn-1" data-go="orders">${ICO("clock")}${t("home.history")}</button>
+      </div>
+    </section>`;
+  }
+
+  function viewHome() {
     const notice = S.config && pick(S.config.notice);
     const st = S.stats;
-    const nTg = S.catalog.filter(i => i.category === "telegram").length;
-    const nG = S.catalog.filter(i => i.category === "game").length;
-    const top = S.catalog.filter(i => (i.tiers || []).some(x => x.badge)).slice(0, 6);
+    const top = S.catalog.filter(i => !i.maint).slice(0, 8);
 
     return `
-      <section class="balcard">
-        <div class="bal-k">${t("home.balance")}</div>
-        <div class="bal-v">${money(bal)}<span class="cur">${t("common.som")}</span></div>
-        ${l && l.current ? `<span class="bal-tier">${ICO("star4", 12)}${esc(l.current.name)}${l.current.percent ? " · " + l.current.percent + "%" : ""}</span>` : ""}
-        <div class="bal-acts">
-          <button class="btn btn--gold btn-1" data-act="topup">${ICO("wallet")}${t("home.topup")}</button>
-          <button class="btn btn--line btn-1" data-go="orders">${ICO("scroll")}${t("home.history")}</button>
-        </div>
-      </section>
+      ${balanceCard()}
 
-      ${notice ? `<div class="ocard" style="margin-top:9px;border-left:2px solid var(--gold)">
-        <div class="oc-b" style="margin:0">${esc(notice)}</div></div>` : ""}
-
-      ${sect(t("home.cats"))}
-      <div class="duo">
-        <button class="duotile" data-go="telegram">
-          ${ICO("plane", 22)}
-          <div class="n">${t("home.tg")}</div>
-          <div class="d">${t("home.tgSub")}</div>
-          <div class="c">${nTg} ${t("home.pcs")}</div>
-        </button>
-        <button class="duotile" data-go="games">
-          ${ICO("pad", 22)}
-          <div class="n">${t("home.games")}</div>
-          <div class="d">${t("home.gamesSub")}</div>
-          <div class="c">${nG} ${t("home.pcs")}</div>
-        </button>
+      <div class="quick">
+        <button data-act="promos">${ICO("tag")}${t("home.quickPromo")}</button>
+        <button data-act="support">${ICO("send")}${t("home.quickHelp")}</button>
       </div>
 
-      ${top.length ? sect(t("home.popular")) + `<div class="grid">${top.map(tile).join("")}</div>` : ""}
+      ${notice ? `<div class="notice">${ICO("info", 15)}<span>${esc(notice)}</span></div>` : ""}
 
-      ${sect(t("home.stats"))}
+      <section class="banner">
+        <div class="banner-in">
+          <span class="banner-mark"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
+          <div>
+            <div class="banner-t">${t("banner.t")}</div>
+            <div class="banner-s">${t("banner.s")}</div>
+            <div class="banner-row">
+              <span class="banner-chip">${t("banner.c1")}</span>
+              <span class="banner-chip">${t("banner.c2")}</span>
+              <span class="banner-chip">${t("banner.c3")}</span>
+            </div>
+          </div>
+        </div>
+        <span class="banner-arcade" aria-hidden="true"></span>
+      </section>
+
+      ${sect(t("home.popular"), `<button class="more" data-go="catalog">${t("home.all")}</button>`, "palak")}
+      <div class="grid">${top.map(tile).join("")}</div>
+
+      ${sect(t("home.stats"), "", "minora")}
       <div class="stats">
         <div class="stat"><div class="stat-v">${st ? money(st.users) : "—"}</div><div class="stat-k">${t("home.statUsers")}</div></div>
         <div class="stat"><div class="stat-v">${st ? money(st.orders) : "—"}</div><div class="stat-k">${t("home.statOrders")}</div></div>
         <div class="stat"><div class="stat-v">24/7</div><div class="stat-k">${t("home.trust3")}</div></div>
       </div>
 
-      ${S.reviews.length ? sect(t("home.reviews")) + `<div class="rows">
+      ${S.reviews.length ? sect(t("home.reviews"), "", "star") + `<div class="rows">
         ${S.reviews.slice(0, 4).map(r => `<div class="row">
           <span class="row-ic" style="color:var(--gold)">${ICO("star", 19)}</span>
           <span class="row-b">
@@ -261,8 +271,74 @@
       </div>`;
   }
 
-  const viewTelegram = () => sect(t("cat.tgTitle")) .replace('class="sect"', 'class="sect sect--first"') + catalogView("telegram");
-  const viewGames = () => sect(t("cat.gamesTitle")).replace('class="sect"', 'class="sect sect--first"') + catalogView("game");
+  /* ══════════ Ko'rinish: Katalog ══════════ */
+
+  function catalogGrid() {
+    const all = S.catalog;
+    const on = S.group;
+    const q = S.query.trim().toLowerCase();
+    let shown = on === "all" ? all : all.filter(i => (i.group || "—") === on);
+    if (q) shown = shown.filter(i =>
+      pick(i.title).toLowerCase().includes(q) || String(i.group || "").toLowerCase().includes(q));
+    return shown.length ? `<div class="grid">${shown.map(tile).join("")}</div>`
+                        : empty("search", t("cat.nores"));
+  }
+
+  function viewCatalog() {
+    const groups = [];
+    S.catalog.forEach(i => { const g = i.group || "—"; if (!groups.includes(g)) groups.push(g); });
+    if (!groups.includes(S.group)) S.group = "all";
+
+    return `
+      ${sect(t("cat.title"), "", "peshtoq").replace('class="sect"', 'class="sect sect--first"')}
+      <div class="search">
+        ${ICO("search", 17)}
+        <input id="q" placeholder="${esc(t("cat.search"))}" value="${esc(S.query)}" autocomplete="off">
+      </div>
+      <div class="pills pills--v">
+        <button class="pill ${S.group === "all" ? "on" : ""}" data-f="all">${t("home.all")}</button>
+        ${groups.map(g => `<button class="pill ${S.group === g ? "on" : ""}" data-f="${esc(g)}">${esc(g)}</button>`).join("")}
+      </div>
+      <div id="gridBox">${catalogGrid()}</div>`;
+  }
+
+  /* ══════════ Ko'rinish: To'ldirish ══════════ */
+
+  const METHODS = [
+    { id: "uzcard", type: "UZCARD", k: "topup.mUzcard", d: "topup.mCard" },
+    { id: "humo",   type: "HUMO",   k: "topup.mHumo",   d: "topup.mCard" }
+  ];
+
+  function viewTopup() {
+    const c = S.config || {};
+    const cards = c.cards || [];
+    // Har bir karta turi uchun rekvizit sozlangan bo'lsagina usul faol bo'ladi
+    const has = type => cards.some(x => String(x.type).toUpperCase() === type);
+
+    return `
+      ${balanceCard(true)}
+      ${sect(t("topup.method"), "", "wallet")}
+      <div class="methods">
+        ${METHODS.map(m => `<button class="method ${has(m.type) ? "" : "off"}" data-m="${m.id}">
+          <span class="method-ic">${ICO("card", 19)}</span>
+          <span style="min-width:0">
+            <span class="method-n">${t(m.k)}</span>
+            <span class="method-d">${t(m.d)}</span>
+          </span>
+        </button>`).join("")}
+      </div>
+      <div class="hint" style="margin:9px 14px 0">${ICO("info", 13)}<span>${t("topup.min")}: ${som(c.minTopup || 5000)}</span></div>
+
+      ${sect(t("topup.links"), "", "list")}
+      <div class="menu">
+        <button class="menu-i" data-act="howto">${ICO("info")}
+          <span class="menu-t">${t("topup.how")}</span>
+          <span class="menu-v">${ICO("chevron", 14)}</span></button>
+        ${c.support ? `<button class="menu-i" data-act="support">${ICO("send")}
+          <span class="menu-t">${t("topup.help")}</span>
+          <span class="menu-v">@${esc(c.support)}${ICO("chevron", 14)}</span></button>` : ""}
+      </div>`;
+  }
 
   /* ══════════ Ko'rinish: Buyurtmalar ══════════ */
 
@@ -292,7 +368,7 @@
       </div>`).join("")
       : empty("scroll", t("orders.empty"), t("orders.emptySub"));
 
-    const payList = pays.length ? sect(t("orders.payments")) + `<div class="rows">
+    const payList = pays.length ? sect(t("orders.payments"), "", "card") + `<div class="rows">
       ${pays.map(p => `<div class="row">
         <span class="row-ic">${ICO("card", 19)}</span>
         <span class="row-b">
@@ -302,7 +378,7 @@
         <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
       </div>`).join("")}</div>` : "";
 
-    return sect(t("orders.title")).replace('class="sect"', 'class="sect sect--first"') + body + payList;
+    return sect(t("orders.title"), "", "scroll").replace('class="sect"', 'class="sect sect--first"') + body + payList;
   }
 
   /* ══════════ Ko'rinish: Profil ══════════ */
@@ -316,16 +392,16 @@
     const pct = l && l.next && l.next.minSpent ? Math.min(100, Math.round(me.spent / l.next.minSpent * 100)) : 0;
 
     const link = (icon, text, val, href) =>
-      `<a class="menu-i" href="${esc(href)}" target="_blank" rel="noopener">
+      `<button class="menu-i" data-open="${esc(href)}">
         ${ICO(icon)}<span class="menu-t">${text}</span>
-        <span class="menu-v">${val ? esc(val) : ""}${ICO("chevron", 14)}</span></a>`;
+        <span class="menu-v">${val ? esc(val) : ""}${ICO("chevron", 14)}</span></button>`;
 
     return `
       <div class="prof">
         <div class="prof-av">${esc((u.first_name || "M").trim().charAt(0).toUpperCase())}</div>
         <div style="min-width:0">
-          <div class="prof-n">${esc(u.first_name || "Mehmon")} ${esc(u.last_name || "")}</div>
-          <div class="prof-id">${u.username ? "@" + esc(u.username) : "ID " + esc(me.id || "—")}</div>
+          <div class="prof-n">${esc(u.first_name || t("home.guest"))} ${esc(u.last_name || "")}</div>
+          <div class="prof-id">${u.username ? "@" + esc(u.username) + " · " : ""}ID ${esc(me.id || "—")}</div>
           ${l && l.current ? `<div class="prof-tier">${esc(l.current.name)}</div>` : ""}
         </div>
       </div>
@@ -341,13 +417,47 @@
         <div class="progress"><i style="width:${pct}%"></i></div>
       </div>` : ""}
 
+      ${sect(t("promo.title"), "", "tag")}
+      <div class="promobox">
+        <div class="inline">
+          <input class="input" id="promoIn" placeholder="${esc(t("promo.ph"))}"
+                 value="${esc(S.myPromo)}" autocomplete="off" style="text-transform:uppercase">
+          <button class="btn btn--acc" id="promoSave">${t("promo.check")}</button>
+        </div>
+        <div id="promoMsg"></div>
+        <div class="lbl" style="margin-bottom:0">${t("promo.avail")}</div>
+        <div class="promolist">
+          ${S.promos.length ? S.promos.map(p => `<button class="promoitem" data-promo="${esc(p.code)}">
+            <span style="flex:1;min-width:0">
+              <span class="promo-code">${esc(p.code)}</span>
+              <span class="promo-note">${esc(p.note || (p.type === "fixed" ? som(p.value) : p.value + "%"))}</span>
+            </span>
+            <span class="promo-take">${t("promo.take")}</span>
+          </button>`).join("")
+          : `<div class="tiny mut">${t("promo.none")}</div>`}
+        </div>
+      </div>
+
+      <div class="duo-big">
+        <button class="bigcard" data-act="referral">
+          ${ICO("users", 21)}
+          <div class="t">${t("ref.card")}</div>
+          <div class="d">${t("ref.cardSub")}</div>
+        </button>
+        <button class="bigcard" data-act="leaders">
+          ${ICO("palak", 21)}
+          <div class="t">${t("lb.title")}</div>
+          <div class="d">${t("lb.sub")}</div>
+        </button>
+      </div>
+
       <div class="menu">
-        <button class="menu-i" data-act="topup">${ICO("wallet")}<span class="menu-t">${t("home.topup")}</span><span class="menu-v">${ICO("chevron", 14)}</span></button>
-        <button class="menu-i" data-act="referral">${ICO("users")}<span class="menu-t">${t("profile.referral")}</span>
-          <span class="menu-v">${c.referral && c.referral.enabled ? c.referral.percent + "%" : "—"}${ICO("chevron", 14)}</span></button>
-        <button class="menu-i" data-act="lang">${ICO("globe")}<span class="menu-t">${t("profile.lang")}</span>
-          <span class="menu-v">${window.I18N.lang.toUpperCase()}</span></button>
-        <button class="menu-i" data-act="theme">${ICO(themeNow() === "dark" ? "moon" : "sun")}<span class="menu-t">${t("profile.theme")}</span>
+        <div class="menu-i">${ICO("globe")}<span class="menu-t">${t("profile.lang")}</span>
+          <span class="seg">
+            ${window.I18N.langs.map(x => `<button class="${x === window.I18N.lang ? "on" : ""}" data-lang="${x}">${x.toUpperCase()}</button>`).join("")}
+          </span></div>
+        <button class="menu-i" data-act="theme">${ICO(themeNow() === "dark" ? "moon" : "sun")}
+          <span class="menu-t">${t("profile.theme")}</span>
           <span class="menu-v">${themeNow() === "dark" ? t("profile.dark") : t("profile.light")}</span></button>
       </div>
 
@@ -361,7 +471,7 @@
         <button class="menu-i" data-act="admin">${ICO("shield")}<span class="menu-t">${t("profile.admin")}</span><span class="menu-v">${ICO("chevron", 14)}</span></button>
       </div>` : ""}
 
-      <div class="center tiny mut" style="margin-top:20px">Milliy Pin · v1.1</div>`;
+      <div class="center tiny mut" style="margin-top:20px">Milliy Pin · v1.2</div>`;
   }
 
   /* ══════════ Mahsulot oynasi ══════════ */
@@ -374,6 +484,18 @@
     link:       ["field.link", "field.linkPh"]
   };
 
+  // Sarlavha kartasi: yuqorida o'yin/xizmat nomi, ostida valyuta turi.
+  // Nom guruh bilan boshlansa, takror yozilmaydi ("PUBG Mobile" + "UC").
+  function headParts(it) {
+    const title = pick(it.title);
+    const group = String(it.group || "").trim();
+    if (group && title.toLowerCase().startsWith(group.toLowerCase())) {
+      const rest = title.slice(group.length).trim();
+      return { main: group, sub: rest || title };
+    }
+    return { main: title, sub: group };
+  }
+
   const O = { item: null, tierId: "", promo: "", discount: 0 };
   const curTier = () => (O.item.tiers || []).find(x => x.id === O.tierId) || O.item.tiers[0];
   const subtotal = () => Number(curTier().price) || 0;
@@ -382,36 +504,42 @@
   function openProduct(id) {
     const it = S.catalog.find(x => x.id === id);
     if (!it) return;
-    O.item = it; O.tierId = (it.tiers[0] || {}).id || ""; O.promo = ""; O.discount = 0;
+    if (it.maint) return toast(t("err.maintenance"), "err");
 
+    O.item = it; O.tierId = (it.tiers[0] || {}).id || ""; O.promo = ""; O.discount = 0;
     const f = FIELD[it.field] || FIELD.playerId;
     const note = pick(it.note);
+    const head = headParts(it);
 
     openSheet(pick(it.title), `
-      <div style="display:flex;align-items:center;gap:11px">
-        <span class="row-ic" style="width:44px;height:44px">${ICO(it.icon || "gift", 24)}</span>
-        <div>
-          <div style="font-weight:800;font-size:14.5px;letter-spacing:-.02em">${esc(pick(it.title))}</div>
-          <div class="tiny mut">${esc(it.group || "")}</div>
+      <div class="phead">
+        <span class="phead-ic" style="color:var(--acc)">${ICO(it.icon, 24) || ICO("gift", 24)}</span>
+        <div style="min-width:0">
+          <div class="phead-t">${esc(head.main)}</div>
+          <div class="phead-s">${esc(head.sub)}</div>
         </div>
-      </div>
-
-      <div class="lbl">${t("prod.choose")}</div>
-      <div class="tiers" id="tierBox">
-        ${it.tiers.map(x => `<button class="tier ${x.id === O.tierId ? "on" : ""}" data-tier="${esc(x.id)}">
-          ${x.badge ? `<span class="tier-tag">${esc(x.badge)}</span>` : ""}
-          <span class="tier-l">${esc(pick(x.label))}</span>
-          <span class="tier-price">${money(x.price)}${x.old ? `<span class="tier-old">${money(x.old)}</span>` : ""}</span>
-        </button>`).join("")}
       </div>
 
       <label for="target">${t(f[0])}</label>
       <input class="input" id="target" placeholder="${esc(t(f[1]))}" autocomplete="off" spellcheck="false">
       ${note ? `<div class="hint">${ICO("info", 13)}<span>${esc(note)}</span></div>` : ""}
 
+      <div class="lbl">${t("prod.choose")}</div>
+      <div class="tiers" id="tierBox">
+        ${it.tiers.map(x => `<button class="tier ${x.id === O.tierId ? "on" : ""}" data-tier="${esc(x.id)}">
+          ${x.badge ? `<span class="tier-tag">${esc(x.badge)}</span>` : ""}
+          <span class="tier-ic">${ICO(it.icon, 17) || ICO("gift", 17)}</span>
+          <span class="tier-b">
+            <span class="tier-l">${esc(pick(x.label))}</span>
+            <span class="tier-price">${money(x.price)}${x.old ? `<span class="tier-old">${money(x.old)}</span>` : ""}</span>
+          </span>
+        </button>`).join("")}
+      </div>
+
       <label for="promo">${t("prod.promo")}</label>
       <div class="inline">
-        <input class="input" id="promo" placeholder="MILLIY10" autocomplete="off" style="text-transform:uppercase">
+        <input class="input" id="promo" placeholder="MILLIY10" autocomplete="off"
+               value="${esc(S.myPromo)}" style="text-transform:uppercase">
         <button class="btn btn--line" id="promoBtn">${t("prod.promoApply")}</button>
       </div>
       <div id="promoMsg"></div>
@@ -425,34 +553,32 @@
         <div class="calc-r calc-r--total"><span>${t("prod.total")}</span><b class="price" id="cTot"></b></div>
       </div>
 
-      <div style="margin-top:12px" id="buyBox"></div>`);
+      <div class="buybar" id="buyBox"></div>`);
 
     el("tierBox").addEventListener("click", e => {
       const b = e.target.closest("[data-tier]");
       if (!b) return;
-      O.tierId = b.getAttribute("data-tier"); O.promo = ""; O.discount = 0;
-      el("promoMsg").innerHTML = ""; el("promo").value = "";
+      O.tierId = b.getAttribute("data-tier");
       [...el("tierBox").children].forEach(c => c.classList.toggle("on", c === b));
-      haptic(); refreshCalc();
+      haptic();
+      if (O.promo) applyPromo(); else refreshCalc();
     });
+    el("promoBtn").onclick = applyPromo;
+    if (S.myPromo) applyPromo(); else refreshCalc();
+  }
 
-    el("promoBtn").onclick = async () => {
-      const code = el("promo").value.trim().toUpperCase();
-      const msg = el("promoMsg");
-      if (!code) { O.promo = ""; O.discount = 0; msg.innerHTML = ""; return refreshCalc(); }
-      try {
-        const r = await api("/api/promo/check", { body: { code, subtotal: subtotal() } });
-        O.promo = code; O.discount = r.discount || 0;
-        msg.innerHTML = `<div class="okline">−${som(O.discount)}</div>`;
-        haptic("ok");
-      } catch (e) {
-        O.promo = ""; O.discount = 0;
-        msg.innerHTML = `<div class="errline">${esc(errText(e))}</div>`;
-        haptic("err");
-      }
-      refreshCalc();
-    };
-
+  async function applyPromo() {
+    const code = el("promo").value.trim().toUpperCase();
+    const msg = el("promoMsg");
+    if (!code) { O.promo = ""; O.discount = 0; msg.innerHTML = ""; return refreshCalc(); }
+    try {
+      const r = await api("/api/promo/check", { body: { code, subtotal: subtotal() } });
+      O.promo = code; O.discount = r.discount || 0;
+      msg.innerHTML = `<div class="okline">−${som(O.discount)}</div>`;
+    } catch (e) {
+      O.promo = ""; O.discount = 0;
+      msg.innerHTML = `<div class="errline">${esc(errText(e))}</div>`;
+    }
     refreshCalc();
   }
 
@@ -465,9 +591,9 @@
     if (O.discount > 0) el("cDisc").textContent = "−" + som(O.discount);
 
     el("buyBox").innerHTML = bal >= tot
-      ? `<button class="btn btn--acc btn-w" id="buyBtn">${ICO("check")}${t("prod.buy")}</button>`
-      : `<div class="errline center">${t("prod.notEnough")} · ${som(tot - bal)}</div>
-         <button class="btn btn--gold btn-w" style="margin-top:8px" data-act="topup">${ICO("wallet")}${t("prod.needTopup")}</button>`;
+      ? `<button class="btn btn--acc btn-w" id="buyBtn">${ICO("check")}${t("prod.buy")} · ${som(tot)}</button>`
+      : `<div class="errline center" style="margin:0 0 8px">${t("prod.notEnough")} · ${som(tot - bal)}</div>
+         <button class="btn btn--gold btn-w" data-go="topup" data-close>${ICO("plus")}${t("prod.needTopup")}</button>`;
     const b = el("buyBtn");
     if (b) b.onclick = submitOrder;
   }
@@ -484,6 +610,7 @@
       });
       closeSheet();
       toast(t("ok.ordered") + " #" + r.order.seq, "ok");
+      if (O.promo) { S.myPromo = ""; try { localStorage.removeItem("mp_promo"); } catch (e) {} }
       await loadMe();
       go("orders");
     } catch (e) {
@@ -494,13 +621,13 @@
 
   /* ══════════ Balansni to'ldirish ══════════ */
 
-  const TP = { amount: 50000, cardId: "" };
-
-  function openTopup() {
+  function openTopup(methodType) {
     const c = S.config || {};
-    const cards = c.cards || [];
+    const cards = (c.cards || []).filter(x =>
+      !methodType || String(x.type).toUpperCase() === methodType);
     if (!cards.length) return toast(t("err.server_error"), "err");
-    TP.amount = 50000; TP.cardId = cards[0].id;
+
+    const TP = { amount: 50000, cardId: cards[0].id };
     const presets = [20000, 50000, 100000, 200000, 500000, 1000000];
 
     openSheet(t("topup.title"), `
@@ -523,7 +650,7 @@
       </div>
 
       <div class="hint" style="margin-top:12px">${ICO("lock", 13)}<span>${t("topup.rules")}</span></div>
-      <button class="btn btn--gold btn-w" id="next" style="margin-top:13px">${t("topup.next")}${ICO("chevron")}</button>`);
+      <div class="buybar"><button class="btn btn--gold btn-w" id="next">${t("topup.next")}${ICO("chevron")}</button></div>`);
 
     el("chips").addEventListener("click", e => {
       const b = e.target.closest("[data-amt]");
@@ -566,7 +693,7 @@
   window.mpOpenTopup = openTopup;
 
   function showWait(p) {
-    const total = Math.max(1, (p.expiresAt || 0) - p.ts);
+    const span = Math.max(1, (p.expiresAt || 0) - p.ts);
     openSheet(t("topup.title"), `
       <div class="paycard">
         <button class="btn btn--line btn-sm pc-copy" data-copy="${esc(String(p.cardNumber).replace(/\s/g, ""))}">${ICO("copy", 14)}</button>
@@ -589,8 +716,10 @@
       <div class="timer-row">${ICO("clock", 16)}<span class="timer" id="tm">--:--</span></div>
       <div class="timer-bar"><i id="tmbar" style="width:100%"></i></div>
 
-      <button class="btn btn--acc btn-w" id="paid" style="margin-top:14px">${ICO("check")}${t("topup.paid")}</button>
-      <button class="btn btn--danger btn-w" id="cancel" style="margin-top:8px">${t("topup.cancel")}</button>
+      <div class="buybar">
+        <button class="btn btn--acc btn-w" id="paid">${ICO("check")}${t("topup.paid")}</button>
+        <button class="btn btn--danger btn-w" id="cancel" style="margin-top:8px">${t("topup.cancel")}</button>
+      </div>
     `, () => { S.pending = null; });
 
     el("sheetBody").addEventListener("click", e => {
@@ -603,12 +732,12 @@
       const node = el("tm");
       if (!node) return clearInterval(S.timerId);
       const left = Math.max(0, (p.expiresAt || 0) - Date.now());
-      const m = Math.floor(left / 60000), s = Math.floor(left % 60000 / 1000);
-      node.textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      const m = Math.floor(left / 60000), sec = Math.floor(left % 60000 / 1000);
+      node.textContent = String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
       const hot = left < 120000;
       node.classList.toggle("hot", hot);
       const bar = el("tmbar");
-      if (bar) { bar.style.width = (left / total * 100) + "%"; bar.classList.toggle("hot", hot); }
+      if (bar) { bar.style.width = (left / span * 100) + "%"; bar.classList.toggle("hot", hot); }
       if (left <= 0) { clearInterval(S.timerId); closeSheet(); toast(t("st.expired"), "err"); loadMe().then(render); }
     };
     tick();
@@ -636,23 +765,21 @@
     };
   }
 
-  /* ══════════ Referal ══════════ */
+  /* ══════════ Referal / reyting / promokod ══════════ */
 
   async function openReferral() {
     openSheet(t("ref.title"), `<div class="skel"></div>`);
     let r;
     try { r = await api("/api/referral"); }
     catch (e) { el("sheetBody").innerHTML = `<div class="errline">${esc(errText(e))}</div>`; return; }
-
     if (!r.enabled) { el("sheetBody").innerHTML = empty("users", t("ref.off")); return; }
+
     const bot = (S.config && S.config.botUsername) || "";
     const link = bot ? "https://t.me/" + bot + "?startapp=ref" + r.code
                      : location.origin + "/?ref=" + r.code;
 
     el("sheetBody").innerHTML = `
-      <div class="ocard" style="margin:0">
-        <div class="sm">${t("ref.desc", { p: r.percent })}</div>
-      </div>
+      <div class="ocard" style="margin:0"><div class="sm">${t("ref.desc", { p: r.percent })}</div></div>
       <div class="stats" style="padding:0;margin-top:9px">
         <div class="stat"><div class="stat-v">${r.invited}</div><div class="stat-k">${t("ref.invited")}</div></div>
         <div class="stat"><div class="stat-v">${r.invitedActive}</div><div class="stat-k">${t("ref.active")}</div></div>
@@ -664,14 +791,54 @@
       <button class="btn btn--line btn-w" id="refShare" style="margin-top:8px">${ICO("send")}${t("ref.share")}</button>`;
 
     el("refCopy").onclick = () => copy(link);
-    el("refShare").onclick = () => {
-      const u = "https://t.me/share/url?url=" + encodeURIComponent(link) +
-        "&text=" + encodeURIComponent(t("ref.shareText"));
-      if (tg && tg.openTelegramLink) tg.openTelegramLink(u); else window.open(u, "_blank");
-    };
+    el("refShare").onclick = () => openLink("https://t.me/share/url?url=" +
+      encodeURIComponent(link) + "&text=" + encodeURIComponent(t("ref.shareText")));
   }
 
-  /* ══════════ Sharh ══════════ */
+  async function openLeaders() {
+    openSheet(t("lb.title"), `<div class="skel"></div>`);
+    let list = [];
+    try { list = await api("/api/leaderboard"); } catch (e) {}
+    el("sheetBody").innerHTML = list.length ? `<div class="lb">
+      ${list.slice(0, 50).map(x => `<div class="lb-row">
+        <span class="lb-rank">${x.rank}</span>
+        <span class="lb-n">${esc(x.name)}${x.username ? " · @" + esc(x.username) : ""}</span>
+        <span class="lb-v">${money(x.spent)}</span>
+      </div>`).join("")}</div>` : empty("palak", t("lb.empty"));
+  }
+
+  function openPromos() {
+    go("profile");
+    setTimeout(() => {
+      const n = document.querySelector(".promobox");
+      if (n) n.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }
+
+  async function savePromo() {
+    const code = el("promoIn").value.trim().toUpperCase();
+    const msg = el("promoMsg");
+    if (!code) {
+      S.myPromo = "";
+      try { localStorage.removeItem("mp_promo"); } catch (e) {}
+      msg.innerHTML = "";
+      return;
+    }
+    try {
+      // Katta summa bilan tekshirish kodning o'zi amal qilishini aniqlaydi;
+      // minimal buyurtma sharti buyurtma paytida qayta tekshiriladi.
+      await api("/api/promo/check", { body: { code, subtotal: 1000000 } });
+      S.myPromo = code;
+      try { localStorage.setItem("mp_promo", code); } catch (e) {}
+      msg.innerHTML = `<div class="okline">${t("promo.saved")}</div>`;
+      haptic("ok");
+    } catch (e) {
+      msg.innerHTML = `<div class="errline">${esc(errText(e))}</div>`;
+      haptic("err");
+    }
+  }
+
+  /* ══════════ Sharh va yordam ══════════ */
 
   function openReview(orderId) {
     let stars = 5;
@@ -704,27 +871,51 @@
     };
   }
 
+  function openHowTo() {
+    openSheet(t("topup.how"), `
+      <div class="steps">
+        <div class="step"><span class="step-n">1</span><span class="step-t">${t("topup.s1")}</span></div>
+        <div class="step"><span class="step-n">2</span><span class="step-t">${t("topup.s2")}</span></div>
+        <div class="step"><span class="step-n">3</span><span class="step-t">${t("topup.s3")}</span></div>
+      </div>
+      <div class="hint" style="margin-top:12px">${ICO("lock", 13)}<span>${t("topup.rules")}</span></div>
+      <button class="btn btn--acc btn-w" style="margin-top:14px" data-close>${t("common.close")}</button>`);
+  }
+
   /* ══════════ Navigatsiya ══════════ */
 
   const TABS = [
-    { id: "home", icon: "arch", key: "nav.home" },
-    { id: "telegram", icon: "plane", key: "nav.tg" },
-    { id: "games", icon: "pad", key: "nav.games" },
-    { id: "orders", icon: "scroll", key: "nav.orders" },
-    { id: "profile", icon: "user", key: "nav.profile" }
+    { id: "home",    icon: "arch",   key: "nav.home" },
+    { id: "catalog", icon: "pad",    key: "nav.catalog" },
+    { id: "topup",   icon: "wallet", key: "nav.topup" },
+    { id: "orders",  icon: "scroll", key: "nav.orders" },
+    { id: "profile", icon: "user",   key: "nav.profile" }
   ];
-  const VIEWS = { home: viewHome, telegram: viewTelegram, games: viewGames, orders: viewOrders, profile: viewProfile };
+  const VIEWS = { home: viewHome, catalog: viewCatalog, topup: viewTopup, orders: viewOrders, profile: viewProfile };
+
+  function renderGreeting() {
+    const u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
+    const name = u.first_name || t("home.guest");
+    const inside = u.photo_url
+      ? `<img src="${esc(u.photo_url)}" alt="">`
+      : esc(name.trim().charAt(0).toUpperCase());
+    el("hiBox").innerHTML = `
+      <span class="hi-av">${inside}</span>
+      <span class="hi-t">
+        <span class="hi-k">${t("home.hi")}</span>
+        <span class="hi-n">${esc(name)}</span>
+      </span>`;
+  }
 
   function buildTabs() {
-    const bar = el("tabbar");
-    bar.innerHTML = `<span class="tabpill" id="tabpill"></span>` +
+    el("tabbar").innerHTML = `<span class="tabpill" id="tabpill"></span>` +
       TABS.map(x => `<button data-tab="${x.id}" class="${x.id === S.tab ? "on" : ""}">
         ${ICO(x.icon, 21)}<span>${t(x.key)}</span></button>`).join("");
   }
 
   function movePill() {
-    const bar = el("tabbar"), pill = el("tabpill");
-    const btn = bar.querySelector('[data-tab="' + S.tab + '"]');
+    const pill = el("tabpill");
+    const btn = el("tabbar").querySelector('[data-tab="' + S.tab + '"]');
     if (!btn || !pill) return;
     pill.style.left = btn.offsetLeft + "px";
     pill.style.width = btn.offsetWidth + "px";
@@ -733,38 +924,59 @@
 
   function render() {
     el("view").innerHTML = (VIEWS[S.tab] || viewHome)();
-    el("balVal").textContent = money(S.me ? S.me.balance : 0);
-    el("balIco").innerHTML = ICO("wallet", 14);
-    el("markSub").textContent = t("brand.sub");
+    renderGreeting();
     buildTabs();
     requestAnimationFrame(movePill);
+    bindView();
     window.scrollTo(0, 0);
   }
   window.mpRender = render;
 
+  // Ko'rinishga xos maydonlar har render'dan keyin ulanadi. Qidiruvda faqat to'r
+  // qismi almashtiriladi — shunda kiritish maydoni fokusni yo'qotmaydi.
+  function bindView() {
+    const q = el("q");
+    if (q) q.addEventListener("input", e => {
+      S.query = e.target.value;
+      const box = el("gridBox");
+      if (box) box.innerHTML = catalogGrid();
+    });
+    const ps = el("promoSave");
+    if (ps) ps.onclick = savePromo;
+  }
+
   function go(tab) {
     if (!VIEWS[tab]) return;
     S.tab = tab; render(); haptic();
+    if (tab === "profile" && !S.promos.length) {
+      loadPromos().then(() => { if (S.tab === "profile") render(); });
+    }
   }
   window.mpGo = go;
 
   /* ══════════ Hodisalar ══════════ */
 
   document.addEventListener("click", e => {
-    if (e.target.closest("[data-close]")) return closeSheet();
-
     const tab = e.target.closest("[data-tab]");
     if (tab) return go(tab.getAttribute("data-tab"));
 
     const goBtn = e.target.closest("[data-go]");
-    if (goBtn) return go(goBtn.getAttribute("data-go"));
+    if (goBtn) {
+      if (goBtn.hasAttribute("data-close")) closeSheet();
+      return go(goBtn.getAttribute("data-go"));
+    }
+    if (e.target.closest("[data-close]")) return closeSheet();
+
+    const lang = e.target.closest("[data-lang]");
+    if (lang) return setLang(lang.getAttribute("data-lang"));
 
     const f = e.target.closest("[data-f]");
-    if (f) {
-      const box = f.closest("[data-filter]");
-      filter[box.getAttribute("data-filter")] = f.getAttribute("data-f");
-      haptic();
-      return render();
+    if (f) { S.group = f.getAttribute("data-f"); haptic(); return render(); }
+
+    const m = e.target.closest("[data-m]");
+    if (m && !m.classList.contains("off")) {
+      const meth = METHODS.find(x => x.id === m.getAttribute("data-m"));
+      return openTopup(meth ? meth.type : null);
     }
 
     const item = e.target.closest("[data-item]");
@@ -773,19 +985,33 @@
     const rev = e.target.closest("[data-review]");
     if (rev) return openReview(rev.getAttribute("data-review"));
 
+    const promo = e.target.closest("[data-promo]");
+    if (promo) {
+      const code = promo.getAttribute("data-promo");
+      S.myPromo = code;
+      try { localStorage.setItem("mp_promo", code); } catch (e2) {}
+      copy(code);
+      return render();
+    }
+
+    const link = e.target.closest("[data-open]");
+    if (link) return openLink(link.getAttribute("data-open"));
+
     const act = e.target.closest("[data-act]");
     if (!act) return;
     const a = act.getAttribute("data-act");
-    if (a === "topup") return openTopup();
+    if (a === "topupOpen") return openTopup();
     if (a === "referral") return openReferral();
+    if (a === "leaders") return openLeaders();
+    if (a === "promos") return openPromos();
+    if (a === "howto") return openHowTo();
+    if (a === "support") return openLink("https://t.me/" + ((S.config && S.config.support) || ""));
     if (a === "admin") return window.mpOpenAdmin && window.mpOpenAdmin();
-    if (a === "lang") return toggleLang();
     if (a === "theme") return toggleTheme();
   });
 
   el("langBtn").onclick = toggleLang;
   el("themeBtn").onclick = toggleTheme;
-  el("balPill").onclick = openTopup;
   window.addEventListener("resize", movePill);
 
   /* ══════════ Yuklash ══════════ */
@@ -793,7 +1019,6 @@
   async function loadMe() {
     try { S.me = await api("/api/me"); }
     catch (e) { if (e.code === "auth" || e.code === "expired") S.me = null; return; }
-    el("balVal").textContent = money(S.me.balance);
     const open = (S.me.payments || []).find(p =>
       p.status === "pending" && p.expiresAt > Date.now() && !p.claimedAt);
     if (open && !S.pending && el("sheetWrap").hidden) { S.pending = open; showWait(open); }
@@ -802,11 +1027,12 @@
   const loadConfig = () => api("/api/config").then(c => { S.config = c; }).catch(() => {});
   const loadReviews = () => api("/api/reviews").then(c => { S.reviews = c || []; }).catch(() => {});
   const loadStats = () => api("/api/stats").then(c => { S.stats = c; }).catch(() => {});
+  const loadPromos = () => api("/api/promos").then(c => { S.promos = c || []; }).catch(() => {});
 
   async function boot() {
     let saved = null;
     try { saved = localStorage.getItem("mp_theme"); } catch (e) {}
-    applyTheme(saved || ((tg && tg.colorScheme === "dark") ? "dark" : "light"));
+    applyTheme(saved || "dark");
     el("langBtn").textContent = window.I18N.lang.toUpperCase();
     el("sheetX").innerHTML = ICO("x", 14);
     document.documentElement.lang = window.I18N.lang;
@@ -823,7 +1049,7 @@
       } catch (e) {}
     }
 
-    await Promise.all([loadConfig(), loadCatalog(), loadMe(), loadReviews(), loadStats()]);
+    await Promise.all([loadConfig(), loadCatalog(), loadMe(), loadReviews(), loadStats(), loadPromos()]);
     if (!tg || !tg.initData) toast(t("err.auth"), "err");
 
     render();
@@ -836,7 +1062,7 @@
 
     setInterval(() => {
       if (document.hidden) return;
-      loadMe().then(() => { if (["home", "orders", "profile"].includes(S.tab)) render(); });
+      loadMe().then(() => { if (["home", "orders", "profile", "topup"].includes(S.tab)) render(); });
     }, 25000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) loadMe().then(render); });
   }

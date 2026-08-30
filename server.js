@@ -413,7 +413,8 @@ function rewardOnDone(o) {
 function publicCatalog() {
   return store.productsAll(db, true).map(it => ({
     id: it.id, category: it.category, group: it.group, icon: it.icon, title: it.title,
-    field: it.field, note: it.note, image: it.image || "",
+    field: it.field, note: it.note, image: it.image || "", maint: !!it.maint,
+    rating: Number(it.rating) || 5,
     tiers: (it.tiers || []).filter(t => t.active !== false)
   })).filter(it => it.tiers.length);
 }
@@ -497,6 +498,36 @@ route("GET", "/api/reviews", (req, res) => {
   send(res, 200, store.reviewsAll(db, 40).map(r => ({
     stars: r.stars, text: r.text, name: r.name, ts: r.ts, itemTitle: r.itemTitle
   })));
+});
+
+// Profildagi "Mavjud promokodlar" ro'yxati — faqat ochiq, amaldagi va limiti
+// tugamagan kodlar chiqadi (kim nechta ishlatgani sir saqlanadi).
+route("GET", "/api/promos", (req, res) => {
+  const list = store.promosAll(db)
+    .filter(p => p.active !== false && p.public !== false)
+    .filter(p => !p.expiresAt || p.expiresAt > now())
+    .filter(p => !p.maxUses || num(p.usedCount) < p.maxUses)
+    .slice(0, 12)
+    .map(p => ({
+      code: p.code, type: p.type, value: p.value,
+      minOrder: p.minOrder || 0, note: p.note || "", expiresAt: p.expiresAt || 0
+    }));
+  send(res, 200, list);
+});
+
+// Top donaterlar — ismlar qisqartirilgan holda beriladi, ID chiqmaydi.
+route("GET", "/api/leaderboard", (req, res) => {
+  const list = store.usersAll(db)
+    .filter(u => num(u.spent) > 0 && !u.blocked)
+    .sort((a, b) => num(b.spent) - num(a.spent))
+    .slice(0, 100)
+    .map((u, i) => ({
+      rank: i + 1,
+      name: str(u.firstName, 20) || ("Mijoz " + String(u.id).slice(-4)),
+      username: u.username ? String(u.username).slice(0, 3) + "***" : "",
+      spent: num(u.spent)
+    }));
+  send(res, 200, list);
 });
 
 route("GET", "/api/stats", (req, res) => {
@@ -603,6 +634,7 @@ route("POST", "/api/order", (req, res) => {
 
     const item = store.productGet(db, str(b.itemId, 40));
     if (!item || item.active === false) return send(res, 404, { error: "item_not_found" });
+    if (item.maint) return send(res, 400, { error: "maintenance" });
     const tier = (item.tiers || []).find(t => t.id === str(b.tierId, 40));
     if (!tier || tier.active === false) return send(res, 404, { error: "tier_not_found" });
 
@@ -753,6 +785,7 @@ route("POST", "/api/admin/catalog", (req, res) => {
       field: str(it.field, 20) || "playerId",
       note: { uz: str((it.note || {}).uz, 240), ru: str((it.note || {}).ru, 240) },
       image: str(it.image, 400), active: it.active !== false, pos: i,
+      maint: !!it.maint, rating: Math.min(5, Math.max(1, Number(it.rating) || 5)),
       tiers: (it.tiers || []).slice(0, 40).map(t => ({
         id: str(t.id, 40) || uid7("t_"),
         label: { uz: str((t.label || {}).uz, 60), ru: str((t.label || {}).ru, 60) },
@@ -874,6 +907,8 @@ route("POST", "/api/admin/promo", (req, res) => {
       minOrder: clampInt(b.minOrder, 0, 1e9),
       maxUses: clampInt(b.maxUses, 0, 1e6),
       perUserLimit: clampInt(b.perUserLimit || 1, 1, 100),
+      note: str(b.note, 160),
+      public: b.public !== false,
       expiresAt: b.expiresAt ? Number(b.expiresAt) : 0,
       active: b.active !== false,
       usedCount: existing ? num(existing.usedCount) : 0,

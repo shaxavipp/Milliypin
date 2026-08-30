@@ -314,6 +314,45 @@ async function main() {
     assert.strictEqual(app.loyaltyTier(9000000).next, null);
   });
 
+
+  group("Yangi ochiq API'lar");
+  await it("/api/promos faqat ochiq va amaldagi kodlarni beradi", async () => {
+    await call("/api/admin/promo", {
+      as: ADMIN, body: { action: "save", code: "YOPIQ", type: "percent", value: 5, public: false }
+    });
+    const r = await call("/api/promos");
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.some(x => x.code === "MILLIY10"), "ochiq kod ko'rinmadi");
+    assert.ok(!r.data.some(x => x.code === "YOPIQ"), "yopiq kod ko'rinib qoldi");
+    assert.ok(!("usedBy" in (r.data[0] || {})), "ichki maydon sizib chiqdi");
+  });
+  await it("/api/leaderboard xaridorlarni tartiblab beradi va ID chiqarmaydi", async () => {
+    const r = await call("/api/leaderboard");
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.length >= 1);
+    assert.strictEqual(r.data[0].rank, 1);
+    assert.ok(!("id" in r.data[0]), "foydalanuvchi ID si ochiq chiqdi");
+    for (let i = 1; i < r.data.length; i++) assert.ok(r.data[i - 1].spent >= r.data[i].spent);
+  });
+  await it("texnik ishdagi mahsulotni sotib bo'lmaydi", async () => {
+    const cur = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const target = cur.find(x => x.id === "tg-stars");
+    target.maint = true;
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: cur } });
+
+    const pub = (await call("/api/catalog")).data.find(x => x.id === "tg-stars");
+    assert.strictEqual(pub.maint, true, "maint bayrog'i katalogda yo'q");
+
+    const r = await call("/api/order", {
+      as: USER, body: { itemId: "tg-stars", tierId: cheap.id, target: "@doniyor" }
+    });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.error, "maintenance");
+
+    target.maint = false;
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: cur } });
+  });
+
   group("Statistika");
   await it("/api/stats haqiqiy sonlarni beradi", async () => {
     const r = await call("/api/stats");
