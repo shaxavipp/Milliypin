@@ -631,8 +631,7 @@
       </div>` : ""}
 
       <div class="menu">
-        ${svc("tag", "gold", t("promo.title"),
-          S.myPromo ? S.myPromo : t("promo.sub"),
+        ${svc("tag", "gold", t("promo.title"), t("promo.sub"),
           S.myPromo ? `<span class="tag tag--done">${esc(S.myPromo)}</span>` : "",
           'data-act="promos"')}
       </div>
