@@ -381,6 +381,22 @@ async function main() {
     await call("/api/notif", { as: USER, body: { enabled: true } });
     assert.strictEqual((await call("/api/me", { as: USER })).data.notifEnabled, true);
   });
+  await it("sharhlarni admin ko'radi va o'chiradi", async () => {
+    const list = await call("/api/admin/reviews", { as: ADMIN });
+    assert.strictEqual(list.status, 200);
+    assert.ok(list.data.length >= 1, "sharh ro'yxati bo'sh");
+    const id = list.data[0].id;
+
+    assert.strictEqual((await call("/api/admin/reviews", { as: USER })).status, 403);
+
+    const del = await call("/api/admin/review", { as: ADMIN, body: { action: "delete", id } });
+    assert.strictEqual(del.status, 200);
+    const after = await call("/api/admin/reviews", { as: ADMIN });
+    assert.ok(!after.data.some(x => x.id === id), "sharh o'chmadi");
+
+    const bad = await call("/api/admin/review", { as: ADMIN, body: { action: "hack", id } });
+    assert.strictEqual(bad.status, 400);
+  });
   await it("texnik ishdagi mahsulotni sotib bo'lmaydi", async () => {
     const cur = (await call("/api/admin/catalog", { as: ADMIN })).data;
     const target = cur.find(x => x.id === "tg-stars");

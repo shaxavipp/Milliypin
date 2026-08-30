@@ -1083,3 +1083,88 @@ select.input { background-image: none; }
   display: grid; place-items: center; border: 1px solid var(--line); background: var(--card2); }
 .mrow-a .ok { color: var(--ok); border-color: var(--ok); background: var(--oksoft); }
 .mrow-a .no { color: var(--err); border-color: var(--err); background: var(--errsoft); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   26. Admin panel: menyu va bo'lim ekranlari
+   Bo'limlar gorizontal chiplarda emas, ikki ustunli to'rda — telefonda hammasi
+   bir ko'rinishda turadi va surish shart emas.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Orqaga qatori — har bir bo'lim ekranining tepasida */
+.admback {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-bottom: 12px; padding: 8px 12px 8px 9px;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card2);
+  font-size: 12.5px; font-weight: 700; color: var(--mut2);
+}
+.admback:active { background: var(--card); }
+
+/* Asosiy chaqiruv tugmasi (Moliya) */
+.admhero {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  margin-top: 11px; padding: 13px;
+  border: 1px solid var(--line2); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--sh1), var(--inset); color: var(--mut);
+}
+.admhero.hot { border-color: var(--clay); background: var(--claysoft); }
+.admhero-ic {
+  width: 40px; height: 40px; flex: 0 0 auto; border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  background: var(--accsoft); border: 1px solid var(--acc); color: var(--acc);
+}
+.admhero.hot .admhero-ic { background: var(--claysoft); border-color: var(--clay); color: var(--clay); }
+.admhero-b { flex: 1; min-width: 0; }
+.admhero-t { display: block; font-size: 13.5px; font-weight: 800; letter-spacing: -.015em; color: var(--txt); }
+.admhero-s { display: block; font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+/* Bo'lim tugmalari — ikki ustun */
+.admgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.admtile {
+  position: relative; display: flex; align-items: center; gap: 10px;
+  padding: 13px 12px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--sh1), var(--inset);
+  transition: border-color .18s ease, transform .14s var(--spring);
+}
+.admtile:active { border-color: var(--acc); }
+.admtile .ic { color: var(--acc); flex: 0 0 auto; }
+.admtile-t { font-size: 12.5px; font-weight: 700; letter-spacing: -.012em; line-height: 1.25; }
+.admtile-badge {
+  position: absolute; top: -6px; right: -4px; z-index: 2;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--clay); color: #FFF3EC; border: 2px solid var(--bg);
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 700;
+}
+
+/* Katalog ro'yxati — nom + ikonkali amallar */
+.catlist { border: 1px solid var(--line); border-radius: var(--r); background: var(--card); overflow: hidden; }
+.catrow { display: flex; align-items: center; gap: 10px; padding: 10px 11px; }
+.catrow + .catrow { border-top: 1px solid var(--line); }
+.catrow.off { opacity: .5; }
+.catrow-b { flex: 1; min-width: 0; }
+.catrow-t { display: block; font-size: 13px; font-weight: 700; letter-spacing: -.012em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catrow-s { display: block; font-size: 10.5px; color: var(--mut); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catrow-a { display: flex; gap: 4px; flex: 0 0 auto; }
+.catrow-a button {
+  width: 30px; height: 30px; border-radius: var(--r-xs);
+  display: grid; place-items: center; color: var(--mut2);
+  border: 1px solid var(--line); background: var(--card2);
+}
+.catrow-a button:active { background: var(--line); }
+.catrow-a [data-cup] { transform: rotate(90deg); }
+.catrow-a .del { color: var(--err); border-color: var(--errsoft); }
+
+/* Tahrir qatorlari */
+.fld { margin-top: 12px; }
+.fld .lbl { margin-top: 0; }
+.editrow { padding: 11px; margin-top: 8px;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); }
+.editgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.editgrid .input, .editrow .input { font-size: 12.5px; padding: 9px 10px; }
+.textarea.code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; }
+
+/* Yashil "nashr qilish" tugmasi */
+.btn--ok { background: var(--ok); color: #04220F; box-shadow: var(--sh1); }

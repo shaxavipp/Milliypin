@@ -816,6 +816,21 @@ route("GET", "/api/admin/money", (req, res) => {
   });
 });
 
+// Sharhlarni ko'rish va o'chirish (nomaqbul matnni olib tashlash uchun)
+route("GET", "/api/admin/reviews", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  send(res, 200, store.reviewsAll(db, 200));
+});
+
+route("POST", "/api/admin/review", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, b => {
+    if (str(b.action, 20) !== "delete") return send(res, 400, { error: "bad_action" });
+    store.reviewDelete(db, str(b.id, 40));
+    send(res, 200, { ok: true });
+  });
+});
+
 // Bitta mijozning to'liq tarixi (buyurtma + to'lov)
 route("GET", "/api/admin/history", (req, res) => {
   if (!requireAdmin(req, res)) return;

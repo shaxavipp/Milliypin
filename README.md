@@ -65,21 +65,25 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 - Buyurtma holati o'zgarganda botdan xabar keladi
 
 **Admin uchun** (Profil → Admin panel; faqat `ADMIN_IDS` ro'yxatidagilar ko'radi)
-- Umumiy: **Bugun / Hafta / Oy / Hammasi** davri bo'yicha tushum, to'ldirishlar,
-  bajarilgan buyurtmalar, yangi va jami mijoz, balanslar yig'indisi; eng ko'p sotilganlar; CSV hisobot
-- Moliya: kutayotgan to'lovlar va ochiq buyurtmalar bitta ekranda bir bosishda tasdiqlanadi;
-  mijozni ID yoki @username bo'yicha topib balansiga qo'shish/yechish, bloklash va
-  **to'liq tarixini** (buyurtma + to'lov, kirim/chiqim rangi bilan) ko'rish
-- Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
-- To'lovlar: holat bo'yicha filtr (kutilmoqda / tasdiqlangan / rad etilgan / muddati o'tgan / hammasi)
-  va ID, @username yoki summa bo'yicha qidiruv
-- Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
-- Katalog: mahsulot va paketlar, muqova rasmi havolasi, hudud yorlig'i, reyting va
-  "texnik ish" holati → **Nashr qilish**
-- Promokodlar: foiz yoki so'mda, limit va min. buyurtma bilan
-- Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni,
-  yordam havolalari, ijtimoiy tarmoqlar, savol-javob va "ilova haqida" matni
-- Tarqatma: barcha foydalanuvchilarga xabar
+
+Panel bitta menyu ekranidan boshlanadi: yuqorida davr segmenti (**Bugun / Hafta / Oy /
+Hammasi**) va olti ko'rsatkich, keyin "Moliya" tugmasi, so'ng barcha bo'limlar **ikki
+ustunli to'rda** — telefonda hammasi bir ko'rinishda turadi, surish shart emas.
+Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
+
+| Bo'lim | Nima qilinadi |
+|---|---|
+| **Moliya** | Kutayotgan to'lovlar va ochiq buyurtmalar bir bosishda tasdiqlanadi; mijozni ID/@username bo'yicha topib balansiga qo'shish/yechish, bloklash va to'liq tarixini ko'rish |
+| **Buyurtmalar** | Holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekorda pul avtomatik qaytadi) |
+| **To'lovlar** | Holat filtri va ID / @username / summa bo'yicha qidiruv |
+| **Mijozlar** | Qidiruv, balans +/−, bloklash, tarix |
+| **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
+| **Promokodlar** | Foiz yoki so'mda, limit, min. buyurtma va mijozga ko'rinadigan izoh bilan |
+| **Sharhlar** | Mijoz sharhlarini ko'rish va nomaqbulini o'chirish |
+| **Sozlamalar** | Kartalar, kanallar (chat_id), referal, sodiqlik darajalari, yordam havolalari, ijtimoiy tarmoqlar, savol-javob, e'lon va "ilova haqida" matni |
+| **Tarqatma** | Barcha foydalanuvchilarga xabar |
+| **Zaxira / JSON** | Katalogni JSON sifatida eksport qilish va qaytadan import qilish |
+| **CSV Telegramga** | Buyurtmalar hisobotini adminning shaxsiy chatiga hujjat sifatida yuborish |
 
 ---
 
@@ -212,7 +216,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (8 bo'lim)
-test/run.js      41 ta integratsion test — npm test
+test/run.js      48 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -234,7 +238,7 @@ Test serverni vaqtinchalik papka bilan ko'taradi, sinov `BOT_TOKEN` orqali haqiq
 imzolar rad etilishi), SMS summasini o'qish, ruxsatlar (oddiy foydalanuvchi admin API'ga
 kira olmasligi), to'liq to'lov oqimi, buyurtma va pul qaytarish, promokod limitlari, sharhlar,
 katalogni nashr qilish, sozlamalar, sodiqlik darajalari, ochiq promokodlar ro'yxati,
-Top donaterlar reytingi va texnik ishdagi mahsulotni sotib bo'lmasligi.
+Top donaterlar reytingi, texnik ishdagi mahsulotni sotib bo'lmasligi va sharh boshqaruvi.
 
 ## Xavfsizlik
 

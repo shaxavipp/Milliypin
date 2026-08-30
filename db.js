@@ -237,6 +237,9 @@ function reviewPut(db, r) {
               ON CONFLICT(id) DO UPDATE SET data=excluded.data`)
     .run(String(r.id), String(r.orderId || ""), String(r.uid || ""), Number(r.ts || Date.now()), j(r));
 }
+function reviewDelete(db, id) {
+  db.prepare("DELETE FROM reviews WHERE id = ?").run(String(id));
+}
 function reviewsAll(db, limit) {
   return db.prepare("SELECT data FROM reviews ORDER BY ts DESC LIMIT ?").all(Number(limit || 50))
     .map(r => p(r.data)).filter(Boolean);
@@ -254,5 +257,5 @@ module.exports = {
   paymentPut, paymentGet, paymentsByUser, paymentsByStatus,
   pendingPaymentByAmount, pendingAmountsSet, paymentsExpire,
   promosAll, promoGet, promoPut, promoDelete,
-  reviewPut, reviewsAll, reviewedOrderIds
+  reviewPut, reviewsAll, reviewedOrderIds, reviewDelete
 };
