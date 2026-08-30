@@ -13,7 +13,8 @@
   const S = {
     tab: "home", config: null, catalog: [], me: null, reviews: null, stats: null,
     promos: [], pending: null, timerId: 0,
-    query: "", group: "all", orderFilter: "all", orderTab: "ord", myPromo: "", openFaq: -1
+    query: "", group: "all", orderFilter: "all", orderTab: "ord", orderQuery: "", myPromo: "", openFaq: -1,
+    loadFailed: false
   };
   window.MP = S;
 
@@ -391,6 +392,20 @@
       </button>`;
   }
 
+  // Ilovani do'stlarga ulashish — Telegram ulashish oynasi ochiladi, imkoni
+  // bo'lmasa havola nusxalanadi.
+  function shareApp() {
+    const bot = (S.config && S.config.botUsername) || "";
+    const link = bot ? "https://t.me/" + bot + "?startapp" : location.origin;
+    const text = t("ref.shareText");
+    if (tg && tg.openTelegramLink) {
+      tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link) +
+        "&text=" + encodeURIComponent(text));
+      return;
+    }
+    copy(link);
+  }
+
   // Barcha sharhlar oynasi — mijoz do'kon haqidagi fikrlarni to'liq o'qiy oladi.
   function openReviews() {
     const r = S.reviews || { count: 0, average: 0, items: [] };
@@ -557,12 +572,23 @@
     }
 
     const f = S.orderFilter;
-    const orders = f === "all" ? all
+    const q = S.orderQuery.trim().toLowerCase();
+    let orders = f === "all" ? all
       : f === "open" ? all.filter(o => o.status === "new" || o.status === "processing")
       : all.filter(o => o.status === f);
+    if (q) orders = orders.filter(o =>
+      String(o.seq) === q.replace(/^#/, "") ||
+      String(o.itemTitle || "").toLowerCase().includes(q) ||
+      String(o.target || "").toLowerCase().includes(q));
 
     const filterBar = all.length > 3 ? `<div class="pills pills--v">
       ${OFILTER.map(x => `<button class="pill ${x.id === f ? "on" : ""}" data-of="${x.id}">${t(x.key)}</button>`).join("")}
+    </div>` : "";
+
+    // Buyurtma ko'payib ketganda qidiruv maydoni chiqadi
+    const searchBar = all.length > 8 ? `<div class="search">
+      ${ICO("search", 17)}
+      <input id="oq" placeholder="${esc(t("orders.search"))}" value="${esc(S.orderQuery)}" autocomplete="off">
     </div>` : "";
 
     // Ixcham qator: bosilganda to'liq ma'lumot oynasi ochiladi.
@@ -583,7 +609,31 @@
               f === "all" ? { attr: 'data-go="catalog"', icon: "pad", label: t("orders.toCatalog") }
                           : { attr: 'data-of="all"', icon: "refresh", label: t("orders.fAll") });
 
-    return seg + filterBar + body;
+    return seg + searchBar + filterBar + body;
+  }
+
+  // Buyurtma yo'li — qaysi bosqichda ekani vaqti bilan ko'rinadi. Mijoz
+  // "nima bo'lyapti?" deb so'ramasligi uchun eng oddiy va aniq usul.
+  function timeline(o) {
+    const done = o.status === "done", cancel = o.status === "canceled";
+    const steps = cancel
+      ? [
+          { k: "st.new", ts: o.ts, on: true },
+          { k: "st.canceled", ts: o.canceledAt, on: true, bad: true }
+        ]
+      : [
+          { k: "st.new", ts: o.ts, on: true },
+          { k: "st.processing", ts: o.procAt, on: o.status === "processing" || done },
+          { k: "st.done", ts: o.doneAt, on: done }
+        ];
+    return `<div class="tl">${steps.map(x => `
+      <div class="tl-i ${x.on ? "on" : ""} ${x.bad ? "bad" : ""}">
+        <span class="tl-dot">${x.on ? ICO(x.bad ? "x" : "check", 11) : ""}</span>
+        <span class="tl-b">
+          <span class="tl-t">${t(x.k)}</span>
+          ${x.ts ? `<span class="tl-s">${dt(x.ts)}</span>` : ""}
+        </span>
+      </div>`).join("")}</div>`;
   }
 
   // Buyurtma tafsiloti: raqam, ma'lumot, narx, holat va sana — jadval qatorlarida,
@@ -599,8 +649,10 @@
         <span class="tag tag--${esc(o.status)}">${t("st." + o.status)}</span>
       </div>
 
+      ${timeline(o)}
+
       <div class="dl">
-        ${row(t("orders.num"), "#" + o.seq)}
+        ${row(t("orders.num"), `<span class="oc-target" data-copy="${o.seq}">#${o.seq}</span>`)}
         ${row(t("orders.target"), `<span class="oc-target" data-copy="${esc(o.target)}">${esc(o.target)}</span>`)}
         ${row(t("prod.total"), som(o.total), "price")}
         ${o.discount ? row(t("prod.discount"), "−" + som(o.discount), "price") : ""}
@@ -697,6 +749,7 @@
         ${svc("star", "clay", t("lb.title"), t("lb.sub"), "", 'data-act="leaders"')}
         ${c.support ? svc("send", "ok", t("profile.support"), "@" + c.support, "",
             'data-open="https://t.me/' + esc(c.support) + '"') : ""}
+        ${svc("share", "acc", t("profile.share"), t("profile.shareSub"), "", 'data-act="share"')}
       </div>
 
       <div class="menu">
@@ -1508,12 +1561,39 @@
         <span class="hi-k">${t("home.hi")}</span>
         <span class="hi-n">${esc(name)}</span>
       </span>`;
+
+    // Balans chipi sarlavha panelida — har ekranda ko'rinib turadi, bosilsa
+    // to'ldirish bo'limiga olib boradi.
+    const chip = el("balChip");
+    if (chip) {
+      const bal = S.me ? S.me.balance : 0;
+      chip.innerHTML = `${ICO("coin", 14)}<b class="price">${money(bal)}</b>`;
+      chip.hidden = !S.me;
+    }
+  }
+
+  // Navigatsiyadagi son: ochiq buyurtma yoki tekshirilayotgan to'lov bo'lsa
+  // mijoz uni darhol ko'radi (ilova ichida qidirib yurmaydi).
+  function tabBadge(id) {
+    const me = S.me;
+    if (!me) return 0;
+    if (id === "orders") {
+      return (me.orders || []).filter(o => o.status === "new" || o.status === "processing").length;
+    }
+    if (id === "topup") {
+      return (me.payments || []).filter(p => p.status === "pending").length;
+    }
+    return 0;
   }
 
   function buildTabs() {
     el("tabbar").innerHTML = `<span class="tabpill" id="tabpill"></span>` +
-      TABS.map(x => `<button data-tab="${x.id}" class="${x.id === S.tab ? "on" : ""}">
-        ${ICO(x.icon, 21)}<span>${t(x.key)}</span></button>`).join("");
+      TABS.map(x => {
+        const n = tabBadge(x.id);
+        return `<button data-tab="${x.id}" class="${x.id === S.tab ? "on" : ""}">
+          ${ICO(x.icon, 21)}${n ? `<i class="tabdot">${n > 9 ? "9+" : n}</i>` : ""}
+          <span>${t(x.key)}</span></button>`;
+      }).join("");
   }
 
   function movePill() {
@@ -1525,8 +1605,19 @@
     pill.classList.add("on");
   }
 
+  // Ma'lumot yuklanmasa ilova bo'sh ko'rinmasin: sababi va "Qayta urinish"
+  // tugmasi chiqadi (tarmoq uzilishi eng ko'p uchraydigan holat).
+  function offlineBar() {
+    if (S.catalog.length || !S.loadFailed) return "";
+    return `<div class="offline">
+      ${ICO("alert", 15)}
+      <span>${t("err.network")}</span>
+      <button class="btn btn--line btn-sm" data-act="retry">${ICO("refresh", 13)}${t("common.retry")}</button>
+    </div>`;
+  }
+
   function render() {
-    el("view").innerHTML = (VIEWS[S.tab] || viewHome)();
+    el("view").innerHTML = offlineBar() + (VIEWS[S.tab] || viewHome)();
     renderGreeting();
     buildTabs();
     requestAnimationFrame(movePill);
@@ -1538,6 +1629,18 @@
   // Ko'rinishga xos maydonlar har render'dan keyin ulanadi. Qidiruvda faqat to'r
   // qismi almashtiriladi — shunda kiritish maydoni fokusni yo'qotmaydi.
   function bindView() {
+    const oq = el("oq");
+    if (oq) oq.addEventListener("input", e => {
+      S.orderQuery = e.target.value;
+      clearTimeout(bindView._t);
+      bindView._t = setTimeout(() => {
+        const pos = e.target.selectionStart;
+        render();
+        const n = el("oq");
+        if (n) { n.focus(); n.setSelectionRange(pos, pos); }
+      }, 220);
+    });
+
     const q = el("q");
     if (q) q.addEventListener("input", e => {
       S.query = e.target.value;
@@ -1669,6 +1772,8 @@
     if (a === "promos") return openPromos();
     if (a === "favs") return openFavs();
     if (a === "reviews") return openReviews();
+    if (a === "share") return shareApp();
+    if (a === "retry") return retryLoad();
     if (a === "howto") return openHowTo();
     if (a === "support") return openLink("https://t.me/" + ((S.config && S.config.support) || ""));
     if (a === "admin") return window.mpOpenAdmin && window.mpOpenAdmin();
@@ -1688,7 +1793,16 @@
       p.status === "pending" && p.expiresAt > Date.now() && !p.claimedAt);
     if (open && !S.pending && el("sheetWrap").hidden) { S.pending = open; showWait(open); }
   }
-  const loadCatalog = () => api("/api/catalog").then(c => { S.catalog = c || []; }).catch(() => {});
+  const loadCatalog = () => api("/api/catalog")
+    .then(c => { S.catalog = c || []; S.loadFailed = false; })
+    .catch(() => { S.loadFailed = true; });
+
+  async function retryLoad() {
+    toast(t("common.loading"));
+    await Promise.all([loadConfig(), loadCatalog(), loadMe(), loadReviews(), loadStats()]);
+    render();
+    if (S.catalog.length) { toast(t("ok.saved"), "ok"); haptic("ok"); }
+  }
   const loadConfig = () => api("/api/config").then(c => { S.config = c; }).catch(() => {});
   const loadReviews = () => api("/api/reviews").then(c => { S.reviews = c || null; }).catch(() => {});
   const loadStats = () => api("/api/stats").then(c => { S.stats = c; }).catch(() => {});

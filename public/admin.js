@@ -356,6 +356,7 @@
           <div class="oc-m">
             <span>${ICO("clock", 12)}${dt(o.ts)}</span>
             <span data-copy="${esc(o.uid)}">${ICO("user", 12)}${o.username ? "@" + esc(o.username) : esc(o.uid)}</span>
+            ${o.balanceAfter !== undefined ? `<span title="Buyurtmadan keyingi balans">${ICO("wallet", 12)}${som(o.balanceAfter)}</span>` : ""}
             ${o.promoCode ? `<span>${ICO("tag", 12)}${esc(o.promoCode)}</span>` : ""}
           </div>
           ${o.status === "new" || o.status === "processing" ? `

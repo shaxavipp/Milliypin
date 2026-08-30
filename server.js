@@ -771,6 +771,7 @@ route("POST", "/api/order/cancel", (req, res) => {
     balanceAdd(o.uid, o.total, "refund");
     o.refunded = true;
     o.status = "canceled";
+    o.canceledAt = now();
     o.cancelReason = "Mijoz bekor qildi";
     store.orderPut(db, o);
     notifyOrder(o);
@@ -908,7 +909,10 @@ route("POST", "/api/order", (req, res) => {
       tierId: tier.id, tierLabel: (tier.label && (tier.label.uz || tier.label)) || tier.id,
       qty, target, comment: str(b.comment, 200),
       subtotal, discount, total, promoCode: promo ? promo.code : "",
-      status: "new", ts: now()
+      status: "new", ts: now(),
+      // Buyurtmadan keyingi balans — admin kartochkada ko'rib, mijozning yana
+      // xarid qila olishini darhol biladi (alohida so'rov kerak emas).
+      balanceAfter: num((store.userGet(db, acc.id) || {}).balance)
     };
     store.orderPut(db, o);
     notifyOrder(o);
@@ -1101,7 +1105,7 @@ route("GET", "/api/admin/orders", (req, res) => {
 // Buyurtma holatini o'zgartirish — ham admin panelidan, ham Telegramdagi
 // tugmalardan bir xil yo'l bilan bajariladi (mantiq ikki joyda takrorlanmaydi).
 function applyOrderAction(o, action, note) {
-  if (action === "processing" && o.status === "new") o.status = "processing";
+  if (action === "processing" && o.status === "new") { o.status = "processing"; o.procAt = now(); }
   else if (action === "done" && o.status !== "done" && o.status !== "canceled") {
     o.status = "done"; o.doneAt = now(); o.note = str(note, 300) || o.note;
     rewardOnDone(o);
@@ -1114,6 +1118,7 @@ function applyOrderAction(o, action, note) {
     balanceAdd(o.uid, o.total, "refund");
     o.refunded = true;
     o.status = "canceled";
+    o.canceledAt = now();
     o.cancelReason = str(note, 200);
   } else return { error: "bad_action", status: o.status };
   store.orderPut(db, o);

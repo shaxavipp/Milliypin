@@ -1411,3 +1411,65 @@ select.input { background-image: none; }
 
 /* To'ldirilgan yulduz — baho aniq ko'rinsin (bo'shi faqat konturda qoladi) */
 .stars span:not(.off) .ic, .rate-stars span:not(.off) .ic { fill: currentColor; }
+
+/* ─────────────────── 31. Buyurtma yo'li ───────────────────
+   Uch bosqich: qabul qilindi → bajarilmoqda → bajarildi. O'tilgan bosqich
+   feruza nuqta bilan, kelmagani bo'sh doira bo'lib qoladi. */
+
+.tl { position: relative; padding: 4px 0 0 2px; }
+.tl-i { position: relative; display: flex; align-items: center; gap: 11px; padding: 7px 0; }
+.tl-i + .tl-i::before {
+  content: ""; position: absolute; left: 9px; top: -10px; width: 2px; height: 18px;
+  background: var(--line2); border-radius: 2px;
+}
+.tl-i.on + .tl-i.on::before { background: var(--acc); }
+.tl-dot {
+  width: 20px; height: 20px; flex: 0 0 auto; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1.5px solid var(--line2); background: var(--card2); color: transparent;
+}
+.tl-i.on .tl-dot { border-color: var(--acc); background: var(--acc); color: #04222A; }
+.tl-i.bad .tl-dot { border-color: var(--err); background: var(--err); color: #FFF3EC; }
+.tl-dot .ic { width: 11px; height: 11px; }
+.tl-t { display: block; font-size: 12.5px; font-weight: 700; color: var(--mut2); }
+.tl-i.on .tl-t { color: var(--txt); }
+.tl-s { display: block; font-size: 10.5px; color: var(--mut); margin-top: 1px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+/* Tarmoq uzilganda: sabab va "Qayta urinish" tugmasi */
+.offline {
+  display: flex; align-items: center; gap: 9px; margin: 0 14px 12px; padding: 11px 12px;
+  border: 1px solid var(--errsoft); border-left: 2px solid var(--err);
+  border-radius: var(--r-sm); background: var(--card); font-size: 12.5px;
+}
+.offline .ic { width: 15px; height: 15px; color: var(--err); flex: 0 0 auto; }
+.offline span { flex: 1; min-width: 0; }
+
+/* Navigatsiyadagi son — ochiq buyurtma yoki kutilayotgan to'lov soni */
+.tabbar button { position: relative; }
+.tabdot {
+  position: absolute; top: 3px; left: 50%; margin-left: 4px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+  background: var(--clay); color: #FFF3EC;
+  font-size: 9.5px; font-weight: 800; font-style: normal; line-height: 16px; text-align: center;
+  border: 1.5px solid var(--bg);
+}
+
+/* Sarlavha panelidagi balans chipi — har ekranda ko'rinadi, bosilsa to'ldirish */
+.balchip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--line2); background: var(--card);
+  box-shadow: var(--sh1), var(--inset);
+  font-size: 12.5px; font-weight: 700; color: var(--txt);
+  max-width: 138px; overflow: hidden;
+}
+.balchip .ic { width: 14px; height: 14px; color: var(--gold); flex: 0 0 auto; }
+.balchip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.balchip:active { transform: scale(.95); }
+
+/* Tor ekranlarda salomlashuv qisqaradi, balans chipi esa buzilmaydi */
+@media (max-width: 360px) {
+  .balchip { max-width: 104px; padding: 0 9px; font-size: 11.5px; }
+  .hi-k { display: none; }
+}
