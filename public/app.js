@@ -13,7 +13,7 @@
   const S = {
     tab: "home", config: null, catalog: [], me: null, reviews: null, stats: null,
     promos: [], pending: null, timerId: 0,
-    query: "", group: "all", myPromo: "", openFaq: -1
+    query: "", group: "all", orderFilter: "all", myPromo: "", openFaq: -1
   };
   window.MP = S;
 
@@ -105,12 +105,20 @@
   /* ══════════ Sheet ══════════ */
 
   let onSheetClose = null;
+  // Telegram "orqaga" tugmasi: ichki ekrani bor oyna (masalan admin panel) uni
+  // yopish o'rniga bir qadam orqaga qaytarishi kerak. Shu vazifani mpSetSheetBack
+  // orqali o'rnatilgan ishlovchi bajaradi; true qaytarsa oyna yopilmaydi.
+  let sheetBack = null;
+  window.mpSetSheetBack = fn => { sheetBack = typeof fn === "function" ? fn : null; };
+
   function openSheet(title, html, cb) {
     el("sheetTitle").textContent = title || "";
     el("sheetBody").innerHTML = html;
     el("sheetWrap").hidden = false;
+    el("sheetBody").scrollTop = 0;
     document.body.style.overflow = "hidden";
     onSheetClose = cb || null;
+    sheetBack = null;
     if (tg && tg.BackButton) tg.BackButton.show();
   }
   function closeSheet() {
@@ -118,6 +126,7 @@
     el("sheetWrap").hidden = true;
     document.body.style.overflow = "";
     clearInterval(S.timerId);
+    sheetBack = null;
     const c = onSheetClose; onSheetClose = null;
     if (c) c();
     if (tg && tg.BackButton) tg.BackButton.hide();
@@ -180,8 +189,9 @@
     return `<button class="tile ${it.maint ? "maint" : ""} ${cover ? "has-cover" : ""}"
       data-item="${esc(it.id)}" data-glaze="${glazeOf(it.group || it.id)}">
       <span class="tile-top">
-        ${cover ? `<img class="tile-cover" src="${esc(cover)}" alt="" loading="lazy">`
-                : (ICO(it.icon, 26) || ICO("gift", 26))}
+        ${cover ? `<img class="tile-cover" src="${esc(cover)}" alt="" loading="lazy"
+              onerror="this.remove();this.closest('.tile').classList.remove('has-cover')">` : ""}
+        ${ICO(it.icon, 26) || ICO("gift", 26)}
         ${it.region ? `<span class="tile-region">${esc(it.region)}</span>` : ""}
         ${tag && !it.maint ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
         ${it.maint ? `<span class="tile-maint">${t("maint")}</span>` : ""}
@@ -371,9 +381,22 @@
   const dt = ts => new Date(ts).toLocaleString("ru-RU",
     { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+  const OFILTER = [
+    { id: "all", key: "orders.fAll" }, { id: "open", key: "orders.fOpen" },
+    { id: "done", key: "st.done" }, { id: "canceled", key: "st.canceled" }
+  ];
+
   function viewOrders() {
-    const orders = (S.me && S.me.orders) || [];
+    const all = (S.me && S.me.orders) || [];
     const pays = (S.me && S.me.payments) || [];
+    const f = S.orderFilter;
+    const orders = f === "all" ? all
+      : f === "open" ? all.filter(o => o.status === "new" || o.status === "processing")
+      : all.filter(o => o.status === f);
+
+    const filterBar = all.length > 3 ? `<div class="pills pills--v">
+      ${OFILTER.map(x => `<button class="pill ${x.id === f ? "on" : ""}" data-of="${x.id}">${t(x.key)}</button>`).join("")}
+    </div>` : "";
 
     const body = orders.length ? orders.map(o => `
       <div class="ocard">
@@ -383,16 +406,20 @@
         </div>
         <div class="oc-b">
           ${esc(o.tierLabel)}${o.qty > 1 ? " × " + o.qty : ""} · <b class="price">${som(o.total)}</b>
-          <div><span class="oc-target">${esc(o.target)}</span></div>
+          <div><span class="oc-target" data-copy="${esc(o.target)}">${esc(o.target)}</span></div>
         </div>
         <div class="oc-m">
           <span>${ICO("clock", 12)}${dt(o.ts)}</span>
           ${o.discount ? `<span>${ICO("tag", 12)}−${som(o.discount)}</span>` : ""}
           ${o.cashback ? `<span>${ICO("gift", 12)}+${som(o.cashback)}</span>` : ""}
         </div>
-        ${o.canReview ? `<div class="oc-acts"><button class="btn btn--line" data-review="${esc(o.id)}">${ICO("star")}${t("orders.review")}</button></div>` : ""}
+        <div class="oc-acts">
+          ${o.canReview ? `<button class="btn btn--line btn-sm" data-review="${esc(o.id)}">${ICO("star", 14)}${t("orders.review")}</button>` : ""}
+          <button class="btn btn--line btn-sm" data-repeat="${esc(o.id)}">${ICO("refresh", 14)}${t("orders.repeat")}</button>
+        </div>
       </div>`).join("")
-      : empty("scroll", t("orders.empty"), t("orders.emptySub"));
+      : empty("scroll", f === "all" ? t("orders.empty") : t("orders.emptyFilter"),
+              f === "all" ? t("orders.emptySub") : "");
 
     const payList = pays.length ? sect(t("orders.payments"), "", "card") + `<div class="rows">
       ${pays.map(p => `<div class="row">
@@ -404,7 +431,8 @@
         <span class="row-e"><span class="tag tag--${esc(p.status)}">${t("st." + p.status)}</span></span>
       </div>`).join("")}</div>` : "";
 
-    return sect(t("orders.title"), "", "scroll").replace('class="sect"', 'class="sect sect--first"') + body + payList;
+    return sect(t("orders.title"), "", "scroll").replace('class="sect"', 'class="sect sect--first"') +
+      filterBar + body + payList;
   }
 
   /* ══════════ Ko'rinish: Profil ══════════ */
@@ -581,12 +609,16 @@
   const subtotal = () => Number(curTier().price) || 0;
   const total = () => Math.max(0, subtotal() - O.discount);
 
-  function openProduct(id) {
+  function openProduct(id, prefill) {
     const it = S.catalog.find(x => x.id === id);
     if (!it) return;
     if (it.maint) return toast(t("err.maintenance"), "err");
 
-    O.item = it; O.tierId = (it.tiers[0] || {}).id || ""; O.promo = ""; O.discount = 0;
+    prefill = prefill || {};
+    O.item = it;
+    O.tierId = (it.tiers || []).some(x => x.id === prefill.tierId)
+      ? prefill.tierId : ((it.tiers[0] || {}).id || "");
+    O.promo = ""; O.discount = 0;
     const f = FIELD[it.field] || FIELD.playerId;
     const note = pick(it.note);
     const head = headParts(it);
@@ -594,8 +626,8 @@
 
     openSheet(pick(it.title), `
       <div class="pcover">
-        ${cover ? `<img src="${esc(cover)}" alt="">`
-                : `<span class="pcover-fallback"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>`}
+        <span class="pcover-fallback"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
+        ${cover ? `<img src="${esc(cover)}" alt="" onerror="this.remove()">` : ""}
         <div class="pcover-in">
           <div style="min-width:0">
             <div class="pcover-t">${esc(head.main)}</div>
@@ -646,13 +678,14 @@
       O.tierId = b.getAttribute("data-tier");
       [...el("tierBox").children].forEach(c => c.classList.toggle("on", c === b));
       haptic();
-      if (O.promo) applyPromo(); else refreshCalc();
+      if (O.promo) applyPromo(true); else refreshCalc();
     });
     el("promoBtn").onclick = applyPromo;
-    if (S.myPromo) applyPromo(); else refreshCalc();
+    if (prefill.target) el("target").value = prefill.target;
+    if (S.myPromo) applyPromo(true); else refreshCalc();
   }
 
-  async function applyPromo() {
+  async function applyPromo(silent) {
     const code = el("promo").value.trim().toUpperCase();
     const msg = el("promoMsg");
     if (!code) { O.promo = ""; O.discount = 0; msg.innerHTML = ""; return refreshCalc(); }
@@ -662,7 +695,9 @@
       msg.innerHTML = `<div class="okline">−${som(O.discount)}</div>`;
     } catch (e) {
       O.promo = ""; O.discount = 0;
-      msg.innerHTML = `<div class="errline">${esc(errText(e))}</div>`;
+      // Oyna ochilishida saqlangan kod bu mahsulotga to'g'ri kelmasligi mumkin —
+      // bunday holatda xato ko'rsatilmaydi, kod shunchaki qo'llanmaydi.
+      msg.innerHTML = silent === true ? "" : `<div class="errline">${esc(errText(e))}</div>`;
     }
     refreshCalc();
   }
@@ -702,6 +737,18 @@
       toast(errText(e), "err");
       b.disabled = false; b.innerHTML = ICO("check") + t("prod.buy");
     }
+  }
+
+  // Eski buyurtmani takrorlash: mahsulot va paket oldindan tanlanadi,
+  // ma'lumot maydoni ham to'ldiriladi — mijoz faqat tasdiqlaydi.
+  function repeatOrder(orderId) {
+    const o = ((S.me && S.me.orders) || []).find(x => x.id === orderId);
+    if (!o) return;
+    const item = S.catalog.find(x => x.id === o.itemId);
+    if (!item) return toast(t("err.item_gone"), "err");
+    if (item.maint) return toast(t("err.maintenance"), "err");
+    const tier = (item.tiers || []).find(x => x.id === o.tierId);
+    openProduct(item.id, { tierId: tier ? tier.id : "", target: o.target });
   }
 
   /* ══════════ Balansni to'ldirish ══════════ */
@@ -986,7 +1033,7 @@
             <span class="row-ic" style="color:${reached ? "var(--gold)" : "var(--mut)"}">${ICO("palak", 19)}</span>
             <span class="row-b">
               <span class="row-t">${esc(x.name)}${now ? " · " + t("lb.you") : ""}</span>
-              <span class="row-s">${t("profile.fromSpent")} ${som(x.minSpent)}</span>
+              <span class="row-s">${som(x.minSpent)} ${t("profile.fromSpent")}</span>
             </span>
             <span class="row-e"><span class="row-p">${x.percent}%</span></span>
           </div>`;
@@ -1195,6 +1242,12 @@
     const item = e.target.closest("[data-item]");
     if (item) return openProduct(item.getAttribute("data-item"));
 
+    const of = e.target.closest("[data-of]");
+    if (of) { S.orderFilter = of.getAttribute("data-of"); haptic(); return render(); }
+
+    const rep = e.target.closest("[data-repeat]");
+    if (rep) return repeatOrder(rep.getAttribute("data-repeat"));
+
     const rev = e.target.closest("[data-review]");
     if (rev) return openReview(rev.getAttribute("data-review"));
 
@@ -1255,7 +1308,10 @@
       try {
         tg.ready(); tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
-        if (tg.BackButton) tg.BackButton.onClick(closeSheet);
+        if (tg.BackButton) tg.BackButton.onClick(() => {
+          if (sheetBack && sheetBack() === true) return;
+          closeSheet();
+        });
         let lang = null;
         try { lang = localStorage.getItem("mp_lang"); } catch (e) {}
         const code = tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code;

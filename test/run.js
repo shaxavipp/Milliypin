@@ -416,6 +416,62 @@ async function main() {
     await call("/api/admin/catalog", { as: ADMIN, body: { items: cur } });
   });
 
+
+  group("Tuzatilgan kamchiliklar");
+  await it("'To'lov qildim' bosilgan to'lov avtomatik o'chmaydi", async () => {
+    const top = await call("/api/topup", { as: FRIEND, body: { amount: 60000 } });
+    assert.strictEqual(top.status, 200);
+    await call("/api/topup/paid", { as: FRIEND, body: { id: top.data.id } });
+
+    // muddatni o'tkazib yuboramiz — claimedAt bo'lgani uchun baribir kutib turishi kerak
+    const store = app.store, db = app.db;
+    const p = store.paymentGet(db, top.data.id);
+    p.expiresAt = Date.now() - 60000;
+    store.paymentPut(db, p);
+
+    const list = await call("/api/admin/payments?status=pending", { as: ADMIN });
+    assert.ok(list.data.some(x => x.id === top.data.id), "to'lov ro'yxatdan yo'qoldi");
+    assert.strictEqual(store.paymentGet(db, top.data.id).status, "pending");
+    await call("/api/admin/payment", { as: ADMIN, body: { id: top.data.id, action: "reject" } });
+  });
+  await it("bosilmagan to'lov muddati o'tsa expired bo'ladi", async () => {
+    const top = await call("/api/topup", { as: FRIEND, body: { amount: 61000 } });
+    const store = app.store, db = app.db;
+    const p = store.paymentGet(db, top.data.id);
+    p.expiresAt = Date.now() - 60000;
+    store.paymentPut(db, p);
+
+    await call("/api/admin/payments?status=pending", { as: ADMIN }); // expirePending ishga tushadi
+    assert.strictEqual(store.paymentGet(db, top.data.id).status, "expired");
+  });
+  await it("bajarilgan buyurtma bekor qilinmaydi", async () => {
+    const r = await call("/api/admin/order", { as: ADMIN, body: { id: order.id, action: "cancel" } });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.error, "already_done");
+    const me = await call("/api/me", { as: USER });
+    assert.strictEqual(me.data.orders.find(o => o.id === order.id).status, "done");
+  });
+  await it("bloklangan mijoz balans to'ldira olmaydi", async () => {
+    await call("/api/admin/user", { as: ADMIN, body: { id: String(REF_ID), action: "block", blocked: true } });
+    const r = await call("/api/topup", { as: FRIEND, body: { amount: 50000 } });
+    assert.strictEqual(r.status, 403);
+    assert.strictEqual(r.data.error, "blocked");
+    await call("/api/admin/user", { as: ADMIN, body: { id: String(REF_ID), action: "block", blocked: false } });
+  });
+  await it("admin havolasida faqat http(s) va tg sxemasi saqlanadi", async () => {
+    await call("/api/admin/settings", {
+      as: ADMIN,
+      body: {
+        shop: { brand: "Milliy Pin", channelUrl: "javascript:alert(1)", reviewsUrl: "https://t.me/ok" },
+        socials: [{ icon: "send", title: "TG", url: "javascript:alert(2)" }]
+      }
+    });
+    const c = await call("/api/config");
+    assert.strictEqual(c.data.channelUrl, "", "xavfli sxema o'tib ketdi");
+    assert.strictEqual(c.data.reviewsUrl, "https://t.me/ok");
+    assert.strictEqual(c.data.socials.length, 0, "xavfli havolali tarmoq qoldi");
+  });
+
   group("Statistika");
   await it("/api/stats haqiqiy sonlarni beradi", async () => {
     const r = await call("/api/stats");

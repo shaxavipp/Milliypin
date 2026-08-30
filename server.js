@@ -87,6 +87,14 @@ const DEFAULTS = {
   }
 };
 
+// Admin kiritgan havola faqat http(s) yoki tg bo'lishi mumkin — "javascript:" kabi
+// sxemalar interfeysga tushmasin.
+function safeUrl(v) {
+  const u = String(v == null ? "" : v).trim().slice(0, 300);
+  if (!u) return "";
+  return /^(https?:\/\/|tg:\/\/)/i.test(u) ? u : "";
+}
+
 function cfg(key) {
   const v = store.setGet(db, key, null);
   return v === null ? JSON.parse(JSON.stringify(DEFAULTS[key])) : v;
@@ -259,12 +267,16 @@ function tgApi(method, payload) {
 }
 const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function tgSend(chatId, text, extra) {
+// force=true — tizim xabarlari (tarqatma, admin hisoboti) uchun: bildirishnoma
+// sozlamasi tekshirilmaydi, chunki ularni chaqiruvchi joyning o'zi filtrlaydi.
+function tgSend(chatId, text, extra, force) {
   if (!chatId) return Promise.resolve({ ok: false });
-  // Mijoz bildirishnomani o'chirgan bo'lsa, unga shaxsiy xabar yuborilmaydi
-  // (kanal xabarlari va admin xabarlari bundan mustasno — ular manfiy/boshqa chat_id).
-  const acc = /^\d+$/.test(String(chatId)) ? store.userGet(db, String(chatId)) : null;
-  if (acc && acc.notifEnabled === false) return Promise.resolve({ ok: false, description: "muted" });
+  if (!force) {
+    // Mijoz bildirishnomani o'chirgan bo'lsa, unga shaxsiy xabar yuborilmaydi
+    // (kanal xabarlari bundan mustasno — ularning chat_id si manfiy).
+    const acc = /^\d+$/.test(String(chatId)) ? store.userGet(db, String(chatId)) : null;
+    if (acc && acc.notifEnabled === false) return Promise.resolve({ ok: false, description: "muted" });
+  }
   return tgApi("sendMessage", Object.assign({
     chat_id: String(chatId), text, parse_mode: "HTML", disable_web_page_preview: true
   }, extra || {}));
@@ -376,7 +388,7 @@ async function notifyTopup(p) {
 /* ═══════════════ Biznes-mantiq ═══════════════ */
 
 function expirePending() {
-  const gone = store.paymentsExpire(db, now() - TOPUP_TTL);
+  const gone = store.paymentsExpire(db, now());
   gone.forEach(p => notifyTopup(p));
 }
 setInterval(expirePending, 60 * 1000).unref();
@@ -563,26 +575,7 @@ route("GET", "/api/leaderboard", (req, res) => {
   const period = ["today", "week", "month", "all"].includes(q.get("period")) ? q.get("period") : "all";
   const cutoff = periodStart(period);
 
-  const totals = {}, counts = {};
-  store.ordersByStatus(db, "done", 20000).forEach(o => {
-    if (o.ts < cutoff) return;
-    if (ADMIN_IDS.indexOf(Number(o.uid)) !== -1) return; // admin o'z do'konida qatnashmaydi
-    totals[o.uid] = (totals[o.uid] || 0) + num(o.total);
-    counts[o.uid] = (counts[o.uid] || 0) + 1;
-  });
-
-  const rows = Object.keys(totals)
-    .map(uid => {
-      const acc = store.userGet(db, uid) || {};
-      return {
-        uid,
-        name: shortName(acc.firstName, "Mijoz " + String(uid).slice(-4)),
-        total: totals[uid], count: counts[uid] || 0
-      };
-    })
-    .filter(r => r.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .map((r, i) => Object.assign({ rank: i + 1 }, r));
+  const rows = cached("lb:" + period, () => buildLeaderboard(cutoff));
 
   const viewer = auth(req);
   let me = null;
@@ -590,7 +583,7 @@ route("GET", "/api/leaderboard", (req, res) => {
     const mine = rows.find(r => r.uid === String(viewer.id));
     me = mine
       ? { rank: mine.rank, total: mine.total, count: mine.count, of: rows.length }
-      : { rank: 0, total: num(totals[String(viewer.id)]), count: 0, of: rows.length };
+      : { rank: 0, total: 0, count: 0, of: rows.length };
   }
 
   send(res, 200, {
@@ -602,13 +595,52 @@ route("GET", "/api/leaderboard", (req, res) => {
   });
 });
 
-route("GET", "/api/stats", (req, res) => {
-  const done = store.ordersByStatus(db, "done", 5000);
-  send(res, 200, {
-    users: store.usersCount(db),
-    orders: done.length,
-    volume: done.reduce((s, o) => s + num(o.total), 0)
+function buildLeaderboard(cutoff) {
+  const totals = {}, counts = {};
+  store.ordersByStatus(db, "done", 20000).forEach(o => {
+    if (o.ts < cutoff) return;
+    if (ADMIN_IDS.indexOf(Number(o.uid)) !== -1) return; // admin o'z do'konida qatnashmaydi
+    totals[o.uid] = (totals[o.uid] || 0) + num(o.total);
+    counts[o.uid] = (counts[o.uid] || 0) + 1;
   });
+
+  return Object.keys(totals)
+    .map(uid => {
+      const acc = store.userGet(db, uid) || {};
+      return {
+        uid,
+        name: shortName(acc.firstName, "Mijoz " + String(uid).slice(-4)),
+        total: totals[uid], count: counts[uid] || 0
+      };
+    })
+    .filter(r => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((r, i) => Object.assign({ rank: i + 1 }, r));
+}
+
+// Og'ir hisob-kitoblar uchun qisqa muddatli kesh (ma'lumot 60 soniyagacha eskiradi,
+// bu ochiq statistika va reyting uchun mutlaqo yetarli).
+const CACHE_TTL = 60 * 1000;
+const _cache = new Map();
+function cached(key, build) {
+  const hit = _cache.get(key);
+  if (hit && hit.until > now()) return hit.value;
+  const value = build();
+  _cache.set(key, { value, until: now() + CACHE_TTL });
+  return value;
+}
+// Ma'lumot o'zgarganda kesh darhol tozalanadi
+function cacheClear() { _cache.clear(); }
+
+route("GET", "/api/stats", (req, res) => {
+  send(res, 200, cached("stats", () => {
+    const done = store.ordersByStatus(db, "done", 20000);
+    return {
+      users: store.usersCount(db),
+      orders: done.length,
+      volume: done.reduce((a, o) => a + num(o.total), 0)
+    };
+  }));
 });
 
 /* ---------- Foydalanuvchi ---------- */
@@ -659,6 +691,7 @@ route("POST", "/api/topup", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
   readBody(req, res, b => {
     const acc = account(u);
+    if (acc.blocked) return send(res, 403, { error: "blocked" });
     const base = clampInt(b.amount, 0, MAX_TOPUP);
     if (base < MIN_TOPUP) return send(res, 400, { error: "min_topup", min: MIN_TOPUP });
     const cards = cfg("cards");
@@ -862,9 +895,16 @@ route("POST", "/api/admin/order", (req, res) => {
     else if (action === "done" && o.status !== "done" && o.status !== "canceled") {
       o.status = "done"; o.doneAt = now(); o.note = str(b.note, 300) || o.note;
       rewardOnDone(o);
+      cacheClear();
     } else if (action === "cancel" && o.status !== "canceled") {
-      if (o.status !== "done") { balanceAdd(o.uid, o.total, "refund"); o.refunded = true; }
-      o.status = "canceled"; o.cancelReason = str(b.note, 200);
+      // Bajarilgan buyurtma bekor qilinmaydi: pul allaqachon o'tgan, "spent"
+      // hisoblangan, keshbek va referal bonusi to'langan. Bunday holatda admin
+      // mijoz balansini qo'lda to'g'irlaydi — shunda hisob-kitob buzilmaydi.
+      if (o.status === "done") return send(res, 400, { error: "already_done" });
+      balanceAdd(o.uid, o.total, "refund");
+      o.refunded = true;
+      o.status = "canceled";
+      o.cancelReason = str(b.note, 200);
     } else return send(res, 400, { error: "bad_action", status: o.status });
     store.orderPut(db, o);
     notifyOrder(o);
@@ -928,7 +968,7 @@ route("POST", "/api/admin/catalog", (req, res) => {
       title: { uz: str((it.title || {}).uz, 80), ru: str((it.title || {}).ru, 80) },
       field: str(it.field, 20) || "playerId",
       note: { uz: str((it.note || {}).uz, 240), ru: str((it.note || {}).ru, 240) },
-      image: str(it.image, 400), cover: str(it.cover, 400),
+      image: safeUrl(it.image), cover: safeUrl(it.cover),
       region: str(it.region, 12).toUpperCase(), active: it.active !== false, pos: i,
       maint: !!it.maint, rating: Math.min(5, Math.max(1, Number(it.rating) || 5)),
       tiers: (it.tiers || []).slice(0, 40).map(t => ({
@@ -995,8 +1035,8 @@ route("POST", "/api/admin/settings", (req, res) => {
     if (b.shop) cfgPut("shop", {
       brand: str(b.shop.brand, 40) || "Milliy Pin",
       supportUsername: str(b.shop.supportUsername, 40).replace(/^@/, ""),
-      channelUrl: str(b.shop.channelUrl, 200),
-      reviewsUrl: str(b.shop.reviewsUrl, 200),
+      channelUrl: safeUrl(b.shop.channelUrl),
+      reviewsUrl: safeUrl(b.shop.reviewsUrl),
       workHours: str(b.shop.workHours, 40),
       noticeUz: str(b.shop.noticeUz, 300),
       noticeRu: str(b.shop.noticeRu, 300)
@@ -1012,10 +1052,10 @@ route("POST", "/api/admin/settings", (req, res) => {
     if (Array.isArray(b.links)) cfgPut("links", b.links.slice(0, 10).map(x => ({
       icon: str(x.icon, 20) || "info",
       color: str(x.color, 10) || "acc",
-      title: str(x.title, 80), sub: str(x.sub, 120), url: str(x.url, 300)
+      title: str(x.title, 80), sub: str(x.sub, 120), url: safeUrl(x.url)
     })).filter(x => x.title));
     if (Array.isArray(b.socials)) cfgPut("socials", b.socials.slice(0, 8).map(x => ({
-      icon: str(x.icon, 20) || "send", title: str(x.title, 40), url: str(x.url, 300)
+      icon: str(x.icon, 20) || "send", title: str(x.title, 40), url: safeUrl(x.url)
     })).filter(x => x.title && x.url));
     if (Array.isArray(b.faq)) cfgPut("faq", b.faq.slice(0, 20).map(x => ({
       q: str(x.q, 160), a: str(x.a, 600)
@@ -1083,16 +1123,32 @@ route("POST", "/api/admin/broadcast", (req, res) => {
   readBody(req, res, async b => {
     const text = str(b.text, 3500);
     if (!text) return send(res, 400, { error: "text_required" });
-    const users = store.usersAll(db).filter(u => !u.blocked);
+    // Botni bloklagan va bildirishnomani o'chirgan mijozlar o'tkazib yuboriladi —
+    // ularга urinish har safar Telegram limitini behuda sarflaydi.
+    const users = store.usersAll(db)
+      .filter(u => !u.blocked && !u.botBlocked && u.notifEnabled !== false);
     send(res, 200, { ok: true, queued: users.length });
-    let sent = 0, failed = 0;
+
+    let sent = 0, failed = 0, blocked = 0;
     for (const u of users) {
-      const r = await tgSend(u.id, text);
-      if (r && r.ok) sent++; else failed++;
-      await new Promise(s => setTimeout(s, 40)); // ~25 xabar/sekund — Telegram limiti ichida
+      const r = await tgSend(u.id, text, null, true);
+      if (r && r.ok) { sent++; }
+      else {
+        failed++;
+        // "Forbidden: bot was blocked by the user" / "user is deactivated"
+        if (/blocked by the user|user is deactivated|chat not found/i.test(String(r && r.description))) {
+          blocked++;
+          const acc = store.userGet(db, u.id);
+          if (acc) { acc.botBlocked = true; store.userPut(db, acc); }
+        }
+      }
+      await new Promise(res2 => setTimeout(res2, 40)); // ~25 xabar/sekund — Telegram limiti ichida
     }
     const admin = ADMIN_IDS[0];
-    if (admin) tgSend(admin, "📢 Tarqatma yakunlandi.\nYuborildi: " + sent + "\nXato: " + failed);
+    if (admin) {
+      tgSend(admin, "Tarqatma yakunlandi.\nYuborildi: " + sent +
+        "\nXato: " + failed + (blocked ? "\nBotni bloklagan: " + blocked : ""), null, true);
+    }
   });
 });
 
@@ -1129,7 +1185,19 @@ function botStartText(name) {
   ].join("\n");
 }
 
-async function handleUpdate(upd) {
+// Telegram chatidagi "Menu" tugmasida buyruqlar ro'yxati ko'rinib tursin
+async function setBotCommands() {
+  if (!BOT_TOKEN) return;
+  await tgApi("setMyCommands", {
+    commands: [
+      { command: "start", description: "Ilovani ochish" },
+      { command: "help", description: "Yordam va aloqa" },
+      { command: "id", description: "Telegram ID'ingiz" }
+    ]
+  });
+}
+
+async function handleUpdate(upd, trusted) {
   const msg = upd.message || upd.edited_message;
   if (!msg || !msg.text) return;
   const chatId = msg.chat && msg.chat.id;
@@ -1138,22 +1206,38 @@ async function handleUpdate(upd) {
   // Shaxsiy chatdagi /start — foydalanuvchini ro'yxatga oladi va referalni biriktiradi.
   if (msg.chat && msg.chat.type === "private" && text.startsWith("/start")) {
     const param = text.split(/\s+/)[1] || "";
-    account(msg.from, param);
+    const acc = account(msg.from, param);
+    // Mijoz qaytadan yozdi — demak bot bloklanmagan
+    if (acc.botBlocked) { acc.botBlocked = false; store.userPut(db, acc); }
     await tgSend(chatId, botStartText(msg.from.first_name), {
       reply_markup: { inline_keyboard: [[{ text: "🎮 Ilovani ochish", url: "https://t.me/" + (await botUsername()) + "?startapp" }]] }
     });
     return;
   }
 
+  if (msg.chat && msg.chat.type === "private" && text.startsWith("/help")) {
+    const shop = cfg("shop");
+    await tgSend(chatId, [
+      "<b>Yordam</b>",
+      "",
+      "• Ilovani ochish: pastdagi menyu tugmasi yoki /start",
+      "• Balansni to'ldirish: ilovadagi «To'ldirish» bo'limi",
+      "• Buyurtma holati: «Buyurtma» bo'limi",
+      shop.workHours ? "• Ish vaqti: " + esc(shop.workHours) : "",
+      shop.supportUsername ? "\nOperator: @" + esc(shop.supportUsername) : ""
+    ].filter(Boolean).join("\n"), null, true);
+    return;
+  }
+
   if (msg.chat && msg.chat.type === "private" && text.startsWith("/id")) {
-    await tgSend(chatId, "Sizning ID: <code>" + msg.from.id + "</code>\nChat ID: <code>" + chatId + "</code>");
+    await tgSend(chatId, "Sizning ID: <code>" + msg.from.id + "</code>\nChat ID: <code>" + chatId + "</code>", null, true);
     return;
   }
 
   // SMS bilan avtomatik tasdiqlash: to'lovlar kanalida bank/karta boti yozgan
   // xabardan summani ajratib, aynan shu summani kutayotgan to'lovni tasdiqlaydi.
   const smsChat = str(cfg("channels").topup, 40);
-  if (smsChat && String(chatId) === smsChat) {
+  if (trusted && smsChat && String(chatId) === smsChat) {
     const amount = parseSmsAmount(text);
     if (amount) {
       const p = store.pendingPaymentByAmount(db, amount);
@@ -1199,12 +1283,16 @@ const server = http.createServer((req, res) => {
 
   // Telegram webhook
   if (pathname === "/tg/webhook" && req.method === "POST") {
-    if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) {
-      return send(res, 403, { error: "bad_secret" });
-    }
+    // Webhook manzili topib olinsa, begona odam ham POST qila oladi. Shu sabab
+    // secret_token to'g'ri kelgan so'rovgina "ishonchli" hisoblanadi; sekret
+    // umuman o'rnatilmagan bo'lsa, bank SMS'idan avtomatik tasdiqlash ishlamaydi
+    // (aks holda soxta xabar bilan balansni to'ldirib olish mumkin bo'lardi).
+    const trusted = !!WEBHOOK_SECRET &&
+      req.headers["x-telegram-bot-api-secret-token"] === WEBHOOK_SECRET;
+    if (WEBHOOK_SECRET && !trusted) return send(res, 403, { error: "bad_secret" });
     return readBody(req, res, body => {
       send(res, 200, { ok: true });
-      handleUpdate(body).catch(e => console.log("[webhook]", e.message));
+      handleUpdate(body, trusted).catch(e => console.log("[webhook]", e.message));
     });
   }
 
@@ -1224,12 +1312,33 @@ const server = http.createServer((req, res) => {
   return serveStatic(req, res, pathname);
 });
 
-if (BOT_TOKEN) botUsername().then(u => u && console.log("[milliypin] bot: @" + u));
+if (BOT_TOKEN) {
+  botUsername().then(u => u && console.log("[milliypin] bot: @" + u));
+  setBotCommands();
+}
 
 server.listen(PORT, () => {
   console.log("[milliypin] server http://localhost:" + PORT);
   if (!BOT_TOKEN) console.log("[milliypin] DIQQAT: BOT_TOKEN o'rnatilmagan — API faqat ochiq yo'llarda ishlaydi.");
   if (!ADMIN_IDS.length) console.log("[milliypin] DIQQAT: ADMIN_IDS bo'sh — admin panel hech kimga ochilmaydi.");
+  if (!WEBHOOK_SECRET) console.log("[milliypin] DIQQAT: TG_WEBHOOK_SECRET yo'q — bank SMS'idan avtomatik tasdiqlash o'chirilgan.");
 });
+
+// Railway/Render qayta deploy paytida SIGTERM yuboradi. Bazani ochiq qoldirmay
+// yopamiz — WAL fayli nuqtaga keltiriladi va ma'lumot butun qoladi.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log("[milliypin] " + signal + " — to'xtatilmoqda...");
+  server.close(() => {
+    try { db.close(); } catch (e) {}
+    process.exit(0);
+  });
+  // Ochiq ulanishlar tugamasa ham 8 soniyadan keyin chiqamiz
+  setTimeout(() => { try { db.close(); } catch (e) {} process.exit(0); }, 8000).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 module.exports = { server, parseSmsAmount, checkInitData, validatePromo, loyaltyTier, db, store };

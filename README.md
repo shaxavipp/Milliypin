@@ -54,7 +54,8 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   (masalan 100 000 → 100 137), shu bilan bank SMS'idan to'lov xatosiz tanib olinadi
 - Paket tanlash, promokod, izoh, mahsulotga mos ma'lumot maydoni
   (@username / Player ID / ID+Zone / nik / havola)
-- Buyurtmalar tarixi va bajarilgan buyurtmani baholash
+- Buyurtmalar tarixi: holat bo'yicha filtr, bir bosishda **qayta buyurtma**
+  (mahsulot, paket va ma'lumot maydoni oldindan to'ldiriladi), bajarilganini baholash
 - Promokodni profilda saqlash — keyingi buyurtmaga avtomatik qo'llanadi
 - Top donaterlar reytingi: **Bugun / Hafta / Oy / Hammasi** davri, uchlik podium,
   buyurtmalar soni va o'z o'rningiz alohida qatorda (ismlar qisqartirilgan, ID ochilmaydi)
@@ -178,7 +179,7 @@ imzo tekshiruvi Telegram ichida ishlaydi.
 | `ADMIN_IDS` | ha | Vergul bilan ajratilgan Telegram ID'lar — faqat shular admin panelni ochadi. |
 | `PORT` | — | Standart 3000 (Railway o'zi beradi). |
 | `DATA_DIR` | — | Baza papkasi. Standart `/data`, yozib bo'lmasa `./data`. |
-| `TG_WEBHOOK_SECRET` | — | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin — begona so'rovlarni to'sadi. |
+| `TG_WEBHOOK_SECRET` | tavsiya | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin. **Busiz bank SMS'idan avtomatik tasdiqlash ishlamaydi** — soxta xabar bilan balans to'ldirib olishning oldini olish uchun. |
 | `SUPPORT_USERNAME` | — | Boshlang'ich support username (keyin admin paneldan o'zgartiriladi). |
 | `ORDER_CHAT_ID` / `TOPUP_CHAT_ID` | — | Kanallarning boshlang'ich qiymati (keyin admin panel ustun turadi). |
 
@@ -199,7 +200,8 @@ Admin: bank SMS'ini tekshirib "Tasdiqlash"  →  balansga ASOSIY summa tushadi
 summani o'qib, aynan shu summani kutayotgan to'lovni **o'zi tasdiqlaydi** — admin aralashuvi
 kerak bo'lmaydi. Summa mos kelmasa, to'lov qo'lda tasdiqlash uchun kutib turadi.
 
-Muddati o'tgan to'lovlar har daqiqada avtomatik `expired` ga o'tadi.
+Muddati o'tgan to'lovlar har daqiqada avtomatik `expired` ga o'tadi — lekin mijoz
+«To'lov qildim» bosgan so'rov bundan mustasno: u admin qaroriga qadar kutib turadi.
 
 ---
 
@@ -216,7 +218,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (8 bo'lim)
-test/run.js      48 ta integratsion test — npm test
+test/run.js      53 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -248,7 +250,22 @@ Top donaterlar reytingi, texnik ishdagi mahsulotni sotib bo'lmasligi va sharh bo
   har bir admin so'rovi qaytadan tekshiriladi.
 - Balans faqat serverda o'zgaradi; mijoz jo'natgan narx yoki chegirma qabul qilinmaydi —
   hammasi katalogdan va promokod jadvalidan qayta hisoblanadi.
-- Webhook `secret_token` bilan himoyalanadi.
+- Webhook `secret_token` bilan himoyalanadi. Sekret o'rnatilmagan bo'lsa, bank SMS'idan
+  **avtomatik tasdiqlash butunlay o'chiriladi** — aks holda webhook manzilini topgan
+  odam soxta "pul keldi" xabari bilan o'ziga balans yozdirib olishi mumkin edi.
+- Mijoz "To'lov qildim" bosgan so'rov avtomatik o'chmaydi — admin ko'rmaguncha kutib turadi.
+- Bajarilgan buyurtma bekor qilinmaydi: pul o'tgan, keshbek va referal bonusi to'langan.
+  Bunday holatda admin balansni qo'lda to'g'irlaydi, shunda hisob buzilmaydi.
+- Admin kiritgan havolalar `http(s)` yoki `tg` sxemasida bo'lishi tekshiriladi.
+- Bloklangan mijoz na buyurtma bera oladi, na balans to'ldira oladi.
+
+## Ishlash
+
+- `/api/stats` va `/api/leaderboard` natijasi 60 soniya keshlanadi — ilova ochilganda
+  minglab buyurtma qayta-qayta skanerlanmaydi (buyurtma bajarilganda kesh darhol tozalanadi).
+- Katalog va sozlamalar `ETag` bilan beriladi: o'zgarmagan bo'lsa `304` qaytadi.
+- `SIGTERM`/`SIGINT` da server ulanishlarni yopib, SQLite bazasini toza yopadi —
+  qayta deploy paytida WAL fayli nuqtaga keltiriladi.
 
 ## Keyingi bosqich
 

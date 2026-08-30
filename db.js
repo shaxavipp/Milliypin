@@ -206,9 +206,14 @@ function pendingPaymentByAmount(db, amount) {
 function pendingAmountsSet(db) {
   return new Set(db.prepare("SELECT amount FROM payments WHERE status = 'pending'").all().map(r => r.amount));
 }
-function paymentsExpire(db, olderThanTs) {
-  const rows = db.prepare("SELECT data FROM payments WHERE status = 'pending' AND ts < ?").all(Number(olderThanTs));
-  const list = rows.map(r => p(r.data)).filter(Boolean);
+// Muddati o'tgan to'lovlarni "expired" ga o'tkazadi.
+// DIQQAT: mijoz "To'lov qildim" bosgan (claimedAt) to'lov HECH QACHON avtomatik
+// o'chmaydi — u admin tasdiqlashini kutib turadi. Aks holda pul o'tkazgan mijozning
+// so'rovi ko'z oldidan yo'qolib ketardi.
+function paymentsExpire(db, nowTs) {
+  const rows = db.prepare("SELECT data FROM payments WHERE status = 'pending'").all();
+  const list = rows.map(r => p(r.data)).filter(Boolean)
+    .filter(pm => !pm.claimedAt && Number(pm.expiresAt || 0) > 0 && Number(pm.expiresAt) < Number(nowTs));
   list.forEach(pm => { pm.status = "expired"; paymentPut(db, pm); });
   return list;
 }

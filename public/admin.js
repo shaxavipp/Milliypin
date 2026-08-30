@@ -80,6 +80,8 @@
     catch (e) { body(backBar() + `<div class="errline">${esc(errText(e))}</div>`); }
     const b = el("admBack");
     if (b) b.onclick = () => go("menu");
+    // Telegram "orqaga" tugmasi panelni yopmasin — menyuga qaytarsin
+    window.mpSetSheetBack(A.screen === "menu" ? null : () => { go("menu"); return true; });
     const sb = document.querySelector(".sh-body");
     if (sb) sb.scrollTop = 0;
   }
@@ -476,7 +478,9 @@
       </div>
       <button class="btn btn--line btn-w" style="margin-top:12px" id="histBack">${ICO("back", 14)}Admin panelga</button>`);
 
-    el("histBack").onclick = () => { const s = A.screen; openAdmin(); go(s); };
+    const back = () => { const s = A.screen; openAdmin(); go(s); };
+    el("histBack").onclick = back;
+    window.mpSetSheetBack(() => { back(); return true; });
   }
 
   /* ═══════════ Katalog ═══════════ */
@@ -487,6 +491,7 @@
   }
 
   function renderCatalog() {
+    window.mpSetSheetBack(() => { go("menu"); return true; });
     body(`${backBar()}
       <button class="btn btn--ok btn-w" id="catSave">${ICO("send", 15)}Nashr qilish — hammaga ko'rsatish</button>
       <div class="hint" style="margin-top:7px">${ICO("info", 13)}<span>Joriy katalogni serverga yuboradi: barcha mijozlar darhol ko'radi.</span></div>
@@ -607,6 +612,7 @@
       <div class="hint" style="margin-top:7px">${ICO("info", 13)}<span>Saqlagach “Nashr qilish” tugmasini bosishni unutmang.</span></div>`);
 
     el("catBack").onclick = renderCatalog;
+    window.mpSetSheetBack(() => { renderCatalog(); return true; });
     el("fMaint").onclick = () => el("fMaint").classList.toggle("on");
     el("tierAdd").onclick = () => {
       const w = document.createElement("div");
