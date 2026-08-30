@@ -318,15 +318,17 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -.018em; }
 }
 .tile:active { transform: scale(.96); border-color: var(--acc); }
 
+/* Muqova maydoni kvadrat: rasm biriktirilgan mahsulot o'yin do'konlaridagidek
+   to'liq ko'rinadi, rasmsizi esa naqsh ustidagi belgi bo'lib qoladi. */
 .tile-top {
-  position: relative; height: 62px;
+  position: relative; aspect-ratio: 1 / 1;
   display: grid; place-items: center;
   background: var(--card2);
   border-bottom: 1px solid var(--line);
 }
 /* medalyon — ikonka ortidagi bodom shakli */
 
-.tile-top .ic { width: 26px; height: 26px; position: relative; }
+.tile-top .ic { width: 32px; height: 32px; position: relative; }
 .tile-body { padding: 7px 8px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .tile-n {
   display: block; font-size: 11.5px; font-weight: 700; line-height: 1.24; letter-spacing: -.012em;
@@ -343,18 +345,27 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -.018em; }
 }
 
 /* rang halqalari — har guruh o'z sirini oladi, panel koshin devor kabi ko'rinadi */
-.tile[data-glaze="0"] .tile-top .ic { color: var(--acc); }
-.tile[data-glaze="1"] .tile-top .ic { color: var(--clay); }
-.tile[data-glaze="2"] .tile-top .ic { color: var(--gold); }
-.tile[data-glaze="3"] .tile-top .ic { color: var(--ok); }
+.tile[data-glaze="0"] .tile-top { color: var(--acc); }
+.tile[data-glaze="1"] .tile-top { color: var(--clay); }
+.tile[data-glaze="2"] .tile-top { color: var(--gold); }
+.tile[data-glaze="3"] .tile-top { color: var(--ok); }
 .tile[data-glaze="0"] .tile-top { background: linear-gradient(160deg, var(--accsoft), transparent 70%), var(--card2); }
 /* Muqovasiz plitada sirlangan koshin naqshi ko'rinib turadi — bo'sh maydon
    qolmaydi, ammo ikonka ustidan bosmaydi. */
 .tile:not(.has-cover) .tile-top::before {
-  content: ""; position: absolute; inset: 0; opacity: .5; pointer-events: none;
-  background-image: var(--naqsh); background-size: 46px 46px;
-  mask-image: radial-gradient(circle at 50% 45%, transparent 34%, #000 76%);
+  content: ""; position: absolute; inset: 0; opacity: .8; pointer-events: none;
+  background-image: var(--naqsh); background-size: 40px 40px;
+  mask-image: radial-gradient(circle at 50% 50%, transparent 28%, #000 72%);
 }
+/* Medalyon — ikonka ortidagi girih: ikki qavat burilgan kvadrat.
+   Muqovasiz mahsulot ham bo'sh emas, koshin taxtachadek ko'rinadi. */
+.medal { position: absolute; width: 52px; height: 52px; pointer-events: none; }
+.medal::before, .medal::after {
+  content: ""; position: absolute; inset: 0;
+  border: 1px solid currentColor; border-radius: 7px; opacity: .24;
+}
+.medal::before { transform: rotate(45deg); }
+.medal::after { opacity: .12; }
 .tile[data-glaze="1"] .tile-top { background: linear-gradient(160deg, var(--claysoft), transparent 70%), var(--card2); }
 .tile[data-glaze="2"] .tile-top { background: linear-gradient(160deg, var(--goldsoft), transparent 70%), var(--card2); }
 .tile[data-glaze="3"] .tile-top { background: linear-gradient(160deg, var(--oksoft), transparent 70%), var(--card2); }
@@ -857,8 +868,7 @@ select.input { background-image: none; }
    qoladi — ikkalasi ham bir xil o'lchamdagi kvadrat maydonda turadi.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.tile-top { height: 64px; overflow: hidden; }
-.tile.has-cover .tile-top { height: auto; aspect-ratio: 1 / 1; }
+.tile-top { overflow: hidden; }
 .tile-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .tile-top::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;

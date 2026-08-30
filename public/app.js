@@ -262,7 +262,8 @@
       <span class="tile-top">
         ${cover ? `<img class="tile-cover" src="${esc(cover)}" alt="" loading="lazy"
               onerror="this.remove();this.closest('.tile').classList.remove('has-cover')">` : ""}
-        ${ICO(it.icon, 26) || ICO("gift", 26)}
+        ${cover ? "" : `<span class="medal" aria-hidden="true"></span>`}
+        ${ICO(it.icon, 32) || ICO("gift", 32)}
         ${it.region ? `<span class="tile-region">${esc(it.region)}</span>` : ""}
         ${tag && !it.maint ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
         ${it.maint ? `<span class="tile-maint">${t("maint")}</span>` : ""}
@@ -366,7 +367,7 @@
     const all = S.catalog;
     const on = S.group;
     const q = S.query.trim().toLowerCase();
-    let shown = on === "all" ? all : all.filter(i => (i.group || "—") === on);
+    let shown = on === "all" ? all : all.filter(i => (i.category || "game") === on);
     if (q) shown = shown.filter(i =>
       pick(i.title).toLowerCase().includes(q) || String(i.group || "").toLowerCase().includes(q));
     return shown.length ? `<div class="grid">${shown.map(tile).join("")}</div>`
@@ -374,9 +375,12 @@
   }
 
   function viewCatalog() {
-    const groups = [];
-    S.catalog.forEach(i => { const g = i.group || "—"; if (!groups.includes(g)) groups.push(g); });
-    if (!groups.includes(S.group)) S.group = "all";
+    // Filtr guruh emas, turkum bo'yicha: guruhlar deyarli har mahsulotga
+    // bittadan to'g'ri kelardi va chiplar ro'yxati katalogning o'zidek uzayib
+    // ketardi. Ikki turkum — "Telegram" va "O'yinlar" — bir qatorga sig'adi.
+    const cats = [];
+    S.catalog.forEach(i => { const c2 = i.category || "game"; if (!cats.includes(c2)) cats.push(c2); });
+    if (S.group !== "all" && !cats.includes(S.group)) S.group = "all";
 
     return `
       ${sect(t("cat.title"), "", "peshtoq").replace('class="sect"', 'class="sect sect--first"')}
@@ -386,7 +390,7 @@
       </div>
       <div class="pills pills--v">
         <button class="pill ${S.group === "all" ? "on" : ""}" data-f="all">${t("home.all")}</button>
-        ${groups.map(g => `<button class="pill ${S.group === g ? "on" : ""}" data-f="${esc(g)}">${esc(g)}</button>`).join("")}
+        ${cats.map(g => `<button class="pill ${S.group === g ? "on" : ""}" data-f="${esc(g)}">${t("cat." + g)}</button>`).join("")}
       </div>
       <div id="gridBox">${catalogGrid()}</div>`;
   }
