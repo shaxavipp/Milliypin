@@ -95,6 +95,33 @@ function safeUrl(v) {
   return /^(https?:\/\/|tg:\/\/)/i.test(u) ? u : "";
 }
 
+// Rasm manzili: tashqi http(s) havola yoki serverning o'z yuklamalar papkasi
+// (/img/xxx.jpg). Boshqa hech narsa katalogga tushmaydi.
+function imgUrl(v) {
+  const u = String(v == null ? "" : v).trim().slice(0, 300);
+  if (!u) return "";
+  if (/^\/img\/[a-f0-9]{8,40}\.(jpg|png|webp)$/i.test(u)) return u;
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
+/* ── Admin yuklagan rasmlar ──
+   Rasm brauzerda 512px gacha kichraytirilib base64 ko'rinishida keladi, server
+   uni faylga yozadi va katalogda faqat qisqa manzil saqlanadi. Shu sabab
+   /api/catalog javobi kichik qoladi va rasmlar brauzerda keshlanadi. */
+const IMG_DIR = path.join(DATA_DIR, "img");
+try { fs.mkdirSync(IMG_DIR, { recursive: true }); } catch (e) {}
+
+function saveDataImage(dataUrl) {
+  const m = /^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || "").trim());
+  if (!m) return null;
+  const buf = Buffer.from(m[2], "base64");
+  if (!buf.length || buf.length > 800 * 1024) return null;
+  const ext = m[1] === "jpg" ? "jpg" : m[1] === "jpeg" ? "jpg" : m[1];
+  const name = crypto.createHash("sha1").update(buf).digest("hex").slice(0, 20) + "." + ext;
+  fs.writeFileSync(path.join(IMG_DIR, name), buf);
+  return "/img/" + name;
+}
+
 function cfg(key) {
   const v = store.setGet(db, key, null);
   return v === null ? JSON.parse(JSON.stringify(DEFAULTS[key])) : v;
@@ -478,13 +505,39 @@ function rewardOnDone(o) {
   store.orderPut(db, o);
 }
 
+// Har mahsulot bo'yicha sharh soni va o'rtacha ball — mahsulot oynasidagi
+// "5.0 · 128 baho" yorlig'i uchun. Sharhlarda itemId saqlanadi; eski
+// sharhlarda u yo'q, shuning uchun mahsulot nomi bo'yicha ham qidiriladi.
+function reviewAgg() {
+  const byId = {}, byTitle = {};
+  store.reviewsAll(db, 3000).forEach(r => {
+    const st = Number(r.stars) || 0;
+    if (r.itemId) {
+      const a = byId[r.itemId] || (byId[r.itemId] = { n: 0, sum: 0 });
+      a.n++; a.sum += st;
+    }
+    const key = String(r.itemTitle || "").toLowerCase();
+    if (key) {
+      const b = byTitle[key] || (byTitle[key] = { n: 0, sum: 0 });
+      b.n++; b.sum += st;
+    }
+  });
+  return { byId, byTitle };
+}
+
 function publicCatalog() {
-  return store.productsAll(db, true).map(it => ({
-    id: it.id, category: it.category, group: it.group, icon: it.icon, title: it.title,
-    field: it.field, note: it.note, image: it.image || "", cover: it.cover || "", region: it.region || "", maint: !!it.maint,
-    rating: Number(it.rating) || 5,
-    tiers: (it.tiers || []).filter(t => t.active !== false)
-  })).filter(it => it.tiers.length);
+  const agg = reviewAgg();
+  return store.productsAll(db, true).map(it => {
+    const a = agg.byId[it.id] || agg.byTitle[String((it.title || {}).uz || "").toLowerCase()] || { n: 0, sum: 0 };
+    return {
+      id: it.id, category: it.category, group: it.group, icon: it.icon, title: it.title,
+      field: it.field, note: it.note, image: it.image || "", cover: it.cover || "",
+      region: it.region || "", maint: !!it.maint,
+      rating: Number(it.rating) || 5,
+      revN: a.n, revAvg: a.n ? Math.round(a.sum / a.n * 10) / 10 : 0,
+      tiers: (it.tiers || []).filter(t => t.active !== false)
+    };
+  }).filter(it => it.tiers.length);
 }
 
 function myView(u) {
@@ -515,6 +568,18 @@ const MIME = {
   ".webp": "image/webp", ".ico": "image/x-icon", ".woff2": "font/woff2"
 };
 function serveStatic(req, res, pathname) {
+  // Admin yuklagan rasmlar public papkada emas, DATA_DIR ichida turadi —
+  // shunda ular deploy paytida o'chib ketmaydi (Railway volume).
+  if (/^\/img\/[a-f0-9]{8,40}\.(jpg|png|webp)$/i.test(pathname)) {
+    return fs.readFile(path.join(IMG_DIR, path.basename(pathname)), (err, data) => {
+      if (err) return send(res, 404, { error: "not_found" });
+      res.writeHead(200, {
+        "Content-Type": MIME[path.extname(pathname).toLowerCase()] || "image/jpeg",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      });
+      res.end(data);
+    });
+  }
   const rel = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   const file = path.join(PUBLIC_DIR, rel);
   if (!file.startsWith(PUBLIC_DIR + path.sep) && file !== path.join(PUBLIC_DIR, "index.html")) {
@@ -562,7 +627,9 @@ route("GET", "/api/config", (req, res) => {
   });
 });
 
-route("GET", "/api/catalog", (req, res) => sendEtag(req, res, publicCatalog()));
+// Katalog javobi 60 soniya keshlanadi: sharh o'rtachasini hisoblash uchun
+// har so'rovda minglab sharhni qayta sanash shart emas.
+route("GET", "/api/catalog", (req, res) => sendEtag(req, res, cached("catalog", publicCatalog)));
 
 route("GET", "/api/reviews", (req, res) => {
   const all = store.reviewsAll(db, 400);
@@ -822,9 +889,11 @@ route("POST", "/api/review", (req, res) => {
     const r = {
       id: uid7("rev_"), orderId: o.id, uid: acc.id, ts: now(),
       stars: clampInt(b.stars, 1, 5), text: str(b.text, 300),
-      name: acc.firstName || ("ID " + acc.id.slice(-4)), itemTitle: o.itemTitle
+      name: acc.firstName || ("ID " + acc.id.slice(-4)),
+      itemId: o.itemId, itemTitle: o.itemTitle
     };
     store.reviewPut(db, r);
+    cacheClear();
     tgSend(chan("log") || chan("order"), "⭐ Yangi sharh (" + r.stars + "/5): " + esc(r.text || "—") + "\n" + esc(r.itemTitle));
     send(res, 200, { ok: true });
   });
@@ -881,9 +950,26 @@ route("GET", "/api/admin/reviews", (req, res) => {
 route("POST", "/api/admin/review", (req, res) => {
   if (!requireAdmin(req, res)) return;
   readBody(req, res, b => {
-    if (str(b.action, 20) !== "delete") return send(res, 400, { error: "bad_action" });
-    store.reviewDelete(db, str(b.id, 40));
-    send(res, 200, { ok: true });
+    const action = str(b.action, 20);
+    if (action === "delete") {
+      store.reviewDelete(db, str(b.id, 40));
+      cacheClear();
+      return send(res, 200, { ok: true });
+    }
+    // Tahrirlash: nomaqbul so'zni olib tashlash yoki noto'g'ri qo'yilgan
+    // bahoni to'g'irlash uchun (sharhni butunlay o'chirishdan ko'ra yaxshiroq).
+    if (action === "edit") {
+      const all = store.reviewsAll(db, 3000);
+      const r = all.find(x => x.id === str(b.id, 40));
+      if (!r) return send(res, 404, { error: "not_found" });
+      if (b.stars !== undefined) r.stars = clampInt(b.stars, 1, 5);
+      if (b.text !== undefined) r.text = str(b.text, 300);
+      if (b.name !== undefined) r.name = str(b.name, 40);
+      store.reviewPut(db, r);
+      cacheClear();
+      return send(res, 200, { ok: true, review: r });
+    }
+    send(res, 400, { error: "bad_action" });
   });
 });
 
@@ -997,6 +1083,18 @@ route("POST", "/api/admin/payment", (req, res) => {
   });
 });
 
+// Admin panelidan rasm yuklash: brauzer kichraytirib base64 yuboradi.
+route("POST", "/api/admin/upload", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, b => {
+    let url = null;
+    try { url = saveDataImage(b.data); }
+    catch (e) { return send(res, 500, { error: "write_failed" }); }
+    if (!url) return send(res, 400, { error: "bad_image" });
+    send(res, 200, { ok: true, url });
+  });
+});
+
 route("GET", "/api/admin/catalog", (req, res) => {
   if (!requireAdmin(req, res)) return;
   send(res, 200, store.productsAll(db, false));
@@ -1014,7 +1112,7 @@ route("POST", "/api/admin/catalog", (req, res) => {
       title: { uz: str((it.title || {}).uz, 80), ru: str((it.title || {}).ru, 80) },
       field: str(it.field, 20) || "playerId",
       note: { uz: str((it.note || {}).uz, 240), ru: str((it.note || {}).ru, 240) },
-      image: safeUrl(it.image), cover: safeUrl(it.cover),
+      image: imgUrl(it.image), cover: imgUrl(it.cover),
       region: str(it.region, 12).toUpperCase(), active: it.active !== false, pos: i,
       maint: !!it.maint, rating: Math.min(5, Math.max(1, Number(it.rating) || 5)),
       tiers: (it.tiers || []).slice(0, 40).map(t => ({
@@ -1023,10 +1121,14 @@ route("POST", "/api/admin/catalog", (req, res) => {
         price: clampInt(t.price, 0, 1e9),
         old: t.old ? clampInt(t.old, 0, 1e9) : 0,
         badge: str(t.badge, 12), qty: clampInt(t.qty, 0, 1e9),
+        // cat — mahsulot ichidagi bo'lim (masalan "UC" va "To'plamlar"),
+        // image — paket rasmi (UC uyumi, olmos to'plami va h.k.)
+        cat: str(t.cat, 24), image: imgUrl(t.image),
         active: t.active !== false
       }))
     }));
     store.productsReplaceAll(db, clean);
+    cacheClear();
     send(res, 200, { ok: true, count: clean.length });
   });
 });

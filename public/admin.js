@@ -21,6 +21,77 @@
   const el = id => document.getElementById(id);
   const ICO = window.ICO;
 
+  // Rasmni brauzerda kichraytirib serverga yuboradi va qisqa manzil qaytaradi.
+  // Shu sabab admin havola izlab o'tirmaydi — telefonidan rasm tanlaydi.
+  function pickImage(maxPx) {
+    return new Promise(resolve => {
+      const inp = document.createElement("input");
+      inp.type = "file";
+      inp.accept = "image/jpeg,image/png,image/webp";
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return resolve(null);
+        const rd = new FileReader();
+        rd.onload = () => {
+          const im = new Image();
+          im.onload = async () => {
+            const MAX = maxPx || 512;
+            let w = im.width, h = im.height;
+            if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+            if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+            const cv = document.createElement("canvas");
+            cv.width = w; cv.height = h;
+            cv.getContext("2d").drawImage(im, 0, 0, w, h);
+            try {
+              const r = await api("/api/admin/upload", { body: { data: cv.toDataURL("image/jpeg", 0.85) } });
+              resolve(r.url);
+            } catch (e) { toast(errText(e), "err"); resolve(null); }
+          };
+          im.onerror = () => { toast("Rasm o'qilmadi", "err"); resolve(null); };
+          im.src = rd.result;
+        };
+        rd.onerror = () => { toast("Rasm o'qilmadi", "err"); resolve(null); };
+        rd.readAsDataURL(f);
+      };
+      inp.click();
+    });
+  }
+
+  // Rasm maydoni: ko'rinish + "Tanlash" + "O'chirish"
+  function imgField(id, label, url) {
+    return `<div class="fld"><label class="lbl">${label}</label>
+      <div class="imgpick" id="${id}Box">
+        <span class="imgpick-p">${url ? `<img src="${esc(url)}" alt="">` : ICO("image", 20)}</span>
+        <input class="input" id="${id}" value="${esc(url || "")}" placeholder="https://... yoki rasm tanlang">
+        <button class="btn btn--line btn-sm" data-pick="${id}">${ICO("plus", 14)}</button>
+        <button class="btn btn--danger btn-sm" data-clear="${id}">${ICO("x", 14)}</button>
+      </div></div>`;
+  }
+
+  // Rasm maydonlarini jonlantirish (bir nechta maydon uchun bitta ishlovchi)
+  function bindImgFields(root) {
+    root.addEventListener("click", async e => {
+      const pk = e.target.closest("[data-pick]");
+      if (pk) {
+        const id = pk.getAttribute("data-pick");
+        const url = await pickImage(id === "fCover" ? 700 : 300);
+        if (!url) return;
+        el(id).value = url;
+        const box = el(id + "Box");
+        if (box) box.querySelector(".imgpick-p").innerHTML = `<img src="${esc(url)}" alt="">`;
+        toast("Rasm yuklandi", "ok");
+        return;
+      }
+      const cl = e.target.closest("[data-clear]");
+      if (cl) {
+        const id = cl.getAttribute("data-clear");
+        el(id).value = "";
+        const box = el(id + "Box");
+        if (box) box.querySelector(".imgpick-p").innerHTML = ICO("image", 20);
+      }
+    });
+  }
+
   const nf = new Intl.NumberFormat("ru-RU");
   const money = n => nf.format(Math.round(Number(n) || 0)).replace(/ /g, " ");
   const som = n => money(n) + " so'm";
@@ -652,8 +723,7 @@
         <div><label class="lbl">Nomi (RU)</label>
           <input class="input" id="fTitleRu" value="${esc((it.title || {}).ru || "")}"></div>
       </div>
-      <div class="fld"><label class="lbl">Muqova rasmi (havola)</label>
-        <input class="input" id="fCover" value="${esc(it.cover || "")}" placeholder="https://..."></div>
+      ${imgField("fCover", "Muqova rasmi (o'yin banneri)", it.cover)}
       <div class="editgrid">
         <div><label class="lbl">Hudud yorlig'i</label>
           <input class="input" id="fRegion" value="${esc(it.region || "")}" placeholder="GLOBAL / SNG / AVTO"></div>
@@ -685,10 +755,20 @@
       w.innerHTML = tierRow({ id: "t" + Date.now().toString(36), label: {}, price: 0 });
       el("tierRows").appendChild(w.firstElementChild);
     };
-    el("tierRows").addEventListener("click", e => {
+    el("tierRows").addEventListener("click", async e => {
       const d = e.target.closest("[data-tdel]");
-      if (d) d.closest(".editrow").remove();
+      if (d) return d.closest(".editrow").remove();
+      const ti = e.target.closest("[data-timg]");
+      if (ti) {
+        const url = await pickImage(300);
+        if (!url) return;
+        const wrap = ti.closest(".imgpick");
+        wrap.querySelector("[data-k=image]").value = url;
+        wrap.querySelector(".imgpick-p").innerHTML = `<img src="${esc(url)}" alt="">`;
+        toast("Rasm yuklandi", "ok");
+      }
     });
+    bindImgFields(el("admBody"));
     el("itemOk").onclick = () => {
       it.category = el("fCat").value;
       it.group = el("fGroup").value.trim();
@@ -707,6 +787,8 @@
         old: Number(row.querySelector("[data-k=old]").value) || 0,
         badge: row.querySelector("[data-k=badge]").value.trim(),
         qty: Number(row.querySelector("[data-k=qty]").value) || 0,
+        cat: row.querySelector("[data-k=cat]").value.trim(),
+        image: row.querySelector("[data-k=image]").value.trim(),
         active: true
       })).filter(x => x.label.uz || x.label.ru);
       toast("Saqlandi", "ok");
@@ -724,6 +806,12 @@
         <input class="input" data-k="old" inputmode="numeric" placeholder="Eski narx" value="${Number(x.old) || 0}">
         <input class="input" data-k="badge" placeholder="Yorliq (TOP)" value="${esc(x.badge || "")}">
         <input class="input" data-k="qty" inputmode="numeric" placeholder="Miqdor" value="${Number(x.qty) || 0}">
+        <input class="input" data-k="cat" placeholder="Bo'lim (UC / To'plam)" value="${esc(x.cat || "")}">
+      </div>
+      <div class="imgpick" style="margin-top:6px">
+        <span class="imgpick-p">${x.image ? `<img src="${esc(x.image)}" alt="">` : ICO("image", 18)}</span>
+        <input class="input" data-k="image" placeholder="Paket rasmi" value="${esc(x.image || "")}">
+        <button class="btn btn--line btn-sm" data-timg>${ICO("plus", 14)}</button>
       </div>
       <button class="btn btn--danger btn-sm btn-w" data-tdel style="margin-top:7px">${ICO("trash", 14)}Paketni o'chirish</button>
     </div>`;

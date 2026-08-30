@@ -738,7 +738,7 @@
     return out;
   }
 
-  const O = { item: null, tierId: "", promo: "", discount: 0 };
+  const O = { item: null, tierId: "", cat: "", promo: "", discount: 0 };
   const curTier = () => (O.item.tiers || []).find(x => x.id === O.tierId) || O.item.tiers[0];
   const subtotal = () => Number(curTier().price) || 0;
   const total = () => Math.max(0, subtotal() - O.discount);
@@ -750,43 +750,61 @@
 
     prefill = prefill || {};
     O.item = it;
-    O.tierId = (it.tiers || []).some(x => x.id === prefill.tierId)
-      ? prefill.tierId : ((it.tiers[0] || {}).id || "");
     O.promo = ""; O.discount = 0;
+
+    // Mahsulot ichidagi bo'limlar: admin har paketga "cat" beradi (masalan
+    // "UC" va "To'plamlar"). Bittasi bo'lsa yorliqlar ko'rsatilmaydi.
+    const cats = [];
+    (it.tiers || []).forEach(x => { const c2 = (x.cat || "").trim(); if (c2 && cats.indexOf(c2) === -1) cats.push(c2); });
+    O.cat = cats.length ? (cats.indexOf(prefill.cat) !== -1 ? prefill.cat : cats[0]) : "";
+
+    const inCat = () => (it.tiers || []).filter(x => !O.cat || (x.cat || "") === O.cat);
+    const first = inCat()[0] || it.tiers[0] || {};
+    O.tierId = (it.tiers || []).some(x => x.id === prefill.tierId) ? prefill.tierId : (first.id || "");
+
     const f = FIELD[it.field] || FIELD.playerId;
     const note = pick(it.note);
     const head = headParts(it);
     const cover = it.cover || it.image;
-
-    // Ilgari kiritilgan ID'lar — o'z tarixidan olinadi, har safar qo'lda
-    // yozib o'tirmaslik uchun (raqobatchilarda "saqlangan ID" shunday ishlaydi).
     const saved = savedTargets(it.id);
+    const rate = it.revN ? it.revAvg : (Number(it.rating) || 5);
 
-    openSheet(pick(it.title), `
-      ${head.sub && head.sub !== head.main || it.region ? `<div class="pmeta">
-        ${head.sub && head.sub !== head.main ? `<span class="pmeta-t">${esc(head.sub)}</span>` : ""}
-        ${it.region ? `<span class="phead-reg">${esc(it.region)}</span>` : ""}
-      </div>` : ""}
+    // Oyna sarlavhasida turkum nomi turadi — mahsulot nomi muqovada katta
+    // yozilgan, uni ikki marta ko'rsatish shart emas.
+    openSheet(t("cat." + (it.category || "game")), `
+      <div class="phero ${cover ? "has-img" : ""}" data-glaze="${glazeOf(it.group || it.id)}">
+        ${cover ? `<img src="${esc(cover)}" alt="" onerror="this.closest('.phero').classList.remove('has-img');this.remove()">`
+                : `<span class="phero-mark">${ICO(it.icon, 54) || ICO("gift", 54)}</span>`}
+        <div class="phero-in">
+          <div style="min-width:0">
+            <div class="phero-t">${esc(head.main)}</div>
+            ${head.sub && head.sub !== head.main ? `<div class="phero-s">${esc(head.sub)}</div>` : ""}
+          </div>
+          <span class="phero-rate">${ICO("star", 12)}${rate % 1 ? rate.toFixed(1) : rate}${
+            it.revN ? `<i>· ${money(it.revN)}</i>` : ""}</span>
+        </div>
+        ${it.region ? `<span class="phero-reg">${esc(it.region)}</span>` : ""}
+      </div>
 
-      <label for="target">${t(f[0])}</label>
-      <input class="input" id="target" placeholder="${esc(t(f[1]))}" autocomplete="off" spellcheck="false">
-      ${saved.length ? `<div class="saved" id="savedBox">
-        <span class="saved-k">${t("prod.saved")}</span>
-        ${saved.map(v => `<button class="chip" data-fill="${esc(v)}">${esc(v)}</button>`).join("")}
-      </div>` : ""}
-      ${note ? `<div class="hint">${ICO("info", 13)}<span>${esc(note)}</span></div>` : ""}
+      <div class="lbl">${t(f[0])}</div>
+      <div class="idbox">
+        <div class="inline">
+          <input class="input" id="target" placeholder="${esc(t(f[1]))}" autocomplete="off" spellcheck="false">
+          ${note ? `<button class="btn btn--soft" id="idInfo" title="${esc(t("prod.help"))}">${ICO("info", 16)}</button>` : ""}
+          <button class="btn btn--line" id="idCheck">${t("prod.check")}</button>
+        </div>
+        <div id="idMsg"></div>
+        ${saved.length ? `<div class="saved" id="savedBox">
+          <span class="saved-k">${t("prod.saved")}</span>
+          ${saved.map(v => `<button class="chip" data-fill="${esc(v)}">${esc(v)}</button>`).join("")}
+        </div>` : ""}
+      </div>
 
       <div class="lbl">${t("prod.choose")}</div>
-      <div class="tiers" id="tierBox">
-        ${it.tiers.map(x => `<button class="tier ${x.id === O.tierId ? "on" : ""}" data-tier="${esc(x.id)}">
-          ${x.badge ? `<span class="tier-tag">${esc(x.badge)}</span>` : ""}
-          <span class="tier-ic">${ICO(it.icon, 17) || ICO("gift", 17)}</span>
-          <span class="tier-b">
-            <span class="tier-l">${esc(pick(x.label))}</span>
-            <span class="tier-price">${money(x.price)}${x.old ? `<span class="tier-old">${money(x.old)}</span>` : ""}</span>
-          </span>
-        </button>`).join("")}
-      </div>
+      ${cats.length > 1 ? `<div class="pills pills--v" id="catBox" style="margin-bottom:9px">
+        ${cats.map(c2 => `<button class="pill ${c2 === O.cat ? "on" : ""}" data-pcat="${esc(c2)}">${esc(c2)}</button>`).join("")}
+      </div>` : ""}
+      <div class="packs" id="tierBox">${packsHTML(it)}</div>
 
       <details class="fold" ${S.myPromo ? "open" : ""}>
         <summary>${ICO("tag", 14)}<span>${t("prod.promo")}</span>${ICO("chevron", 14)}</summary>
@@ -824,16 +842,77 @@
       haptic();
       if (O.promo) applyPromo(true); else refreshCalc();
     });
+
+    const cb = el("catBox");
+    if (cb) cb.addEventListener("click", e => {
+      const b = e.target.closest("[data-pcat]");
+      if (!b) return;
+      O.cat = b.getAttribute("data-pcat");
+      const list = (it.tiers || []).filter(x => (x.cat || "") === O.cat);
+      O.tierId = (list[0] || {}).id || "";
+      [...cb.children].forEach(c => c.classList.toggle("on", c === b));
+      el("tierBox").innerHTML = packsHTML(it);
+      haptic();
+      if (O.promo) applyPromo(true); else refreshCalc();
+    });
+
     el("promoBtn").onclick = applyPromo;
+    el("idCheck").onclick = checkTarget;
+    const inf = el("idInfo");
+    if (inf) inf.onclick = () => openSheetInfo(pick(it.title), note);
+
     const sb = el("savedBox");
     if (sb) sb.addEventListener("click", e => {
       const c = e.target.closest("[data-fill]");
       if (!c) return;
       el("target").value = c.getAttribute("data-fill");
+      el("idMsg").innerHTML = "";
       haptic();
     });
     if (prefill.target) el("target").value = prefill.target;
     if (S.myPromo) applyPromo(true); else refreshCalc();
+  }
+
+  // Paket kartochkalari — ikki ustunli to'r, har birida paket rasmi (admin
+  // qo'ygan bo'lsa), miqdori va narxi.
+  function packsHTML(it) {
+    const list = (it.tiers || []).filter(x => !O.cat || (x.cat || "") === O.cat);
+    return list.map(x => `<button class="pack ${x.id === O.tierId ? "on" : ""}" data-tier="${esc(x.id)}">
+      ${x.badge ? `<span class="pack-tag">${esc(x.badge)}</span>` : ""}
+      <span class="pack-ic">${x.image ? `<img src="${esc(x.image)}" alt="" loading="lazy"
+        onerror="this.remove()">` : ""}${ICO(it.icon, 22) || ICO("gift", 22)}</span>
+      <span class="pack-b">
+        <span class="pack-l">${esc(pick(x.label))}</span>
+        <span class="pack-p price">${money(x.price)}<span class="cur">${t("common.som")}</span>${
+          x.old && x.old > x.price ? `<span class="pack-old">${money(x.old)}</span>` : ""}</span>
+      </span>
+    </button>`).join("");
+  }
+
+  // "Tekshirish" — o'yin serverlariga so'rov yubormaymiz (rasmiy API yo'q),
+  // ammo maydon formatini tekshirib, xato terilgan ID'ni darhol aytamiz.
+  function checkTarget() {
+    const it = O.item, v = el("target").value.trim(), msg = el("idMsg");
+    const kind = it.field || "playerId";
+    let bad = "";
+    if (!v) bad = t("err.target");
+    else if (kind === "username" && !/^@?[A-Za-z][A-Za-z0-9_]{4,31}$/.test(v)) bad = t("prod.badUser");
+    else if (kind === "playerId" && !/^\d{5,15}$/.test(v)) bad = t("prod.badId");
+    else if (kind === "playerZone" && !/^\d{5,15}\s*[\(\s]\s*\d{2,6}\s*\)?$/.test(v)) bad = t("prod.badZone");
+    else if (kind === "link" && !/^https?:\/\/|^t\.me\//i.test(v)) bad = t("prod.badLink");
+    else if (v.length < 2) bad = t("err.target");
+
+    msg.innerHTML = bad
+      ? `<div class="errline">${esc(bad)}</div>`
+      : `<div class="okline">${t("prod.idOk")}</div>`;
+    haptic(bad ? "err" : "ok");
+  }
+
+  // Kichik ma'lumot oynasi (masalan "ID'ni qayerdan olish kerak")
+  function openSheetInfo(title, text) {
+    openSheet(title, `<div class="hint">${ICO("info", 15)}<span>${esc(text)}</span></div>
+      <button class="btn btn--line btn-w" style="margin-top:12px" data-close>${t("common.close")}</button>`,
+      null, { icon: ICO("info", 20) });
   }
 
   async function applyPromo(silent) {

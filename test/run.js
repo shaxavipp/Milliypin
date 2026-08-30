@@ -548,6 +548,67 @@ async function main() {
     assert.strictEqual(r.status, 404);
   });
 
+  group("Rasm yuklash va paket maydonlari");
+  // 1x1 piksellik haqiqiy JPEG (base64)
+  const TINY_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+  let imgUrl = "";
+  await it("admin rasm yuklaydi va qisqa manzil qaytadi", async () => {
+    const r = await call("/api/admin/upload", { as: ADMIN, body: { data: TINY_JPEG } });
+    assert.strictEqual(r.status, 200);
+    assert.ok(/^\/img\/[a-f0-9]+\.jpg$/.test(r.data.url), "manzil noto'g'ri: " + r.data.url);
+    imgUrl = r.data.url;
+  });
+  await it("yuklangan rasm ochiladi", async () => {
+    const res = await fetch("http://127.0.0.1:" + PORT + imgUrl);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.headers.get("content-type"), "image/jpeg");
+  });
+  await it("rasm bo'lmagan ma'lumot rad etiladi", async () => {
+    const r = await call("/api/admin/upload", { as: ADMIN, body: { data: "javascript:alert(1)" } });
+    assert.strictEqual(r.status, 400);
+  });
+  await it("oddiy mijoz rasm yuklay olmaydi", async () => {
+    const r = await call("/api/admin/upload", { as: USER, body: { data: TINY_JPEG } });
+    assert.strictEqual(r.status, 403);
+  });
+  await it("paketning bo'limi va rasmi saqlanadi", async () => {
+    const list = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const item = list.find(x => x.id === "tg-stars");
+    item.tiers[0].cat = "Yulduz";
+    item.tiers[0].image = imgUrl;
+    item.tiers[0].badge = "TOP";
+    const r = await call("/api/admin/catalog", { as: ADMIN, body: { items: list } });
+    assert.strictEqual(r.status, 200);
+    const pub = (await call("/api/catalog")).data.find(x => x.id === "tg-stars");
+    assert.strictEqual(pub.tiers[0].cat, "Yulduz");
+    assert.strictEqual(pub.tiers[0].image, imgUrl);
+  });
+  await it("xavfli rasm manzili katalogga tushmaydi", async () => {
+    const list = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const item = list.find(x => x.id === "tg-stars");
+    item.cover = "javascript:alert(1)";
+    item.tiers[0].image = "data:text/html,<script>";
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: list } });
+    const pub = (await call("/api/catalog")).data.find(x => x.id === "tg-stars");
+    assert.strictEqual(pub.cover, "");
+    assert.strictEqual(pub.tiers[0].image, "");
+  });
+  await it("katalogda mahsulot bahosi va sharh soni bo'ladi", async () => {
+    const pub = (await call("/api/catalog")).data[0];
+    assert.ok(typeof pub.revN === "number");
+    assert.ok(typeof pub.revAvg === "number");
+  });
+  await it("admin sharhni tahrirlaydi", async () => {
+    const all = (await call("/api/admin/reviews", { as: ADMIN })).data;
+    if (!all.length) return;
+    const r = await call("/api/admin/review", {
+      as: ADMIN, body: { action: "edit", id: all[0].id, stars: 4, text: "tahrirlandi" }
+    });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.review.stars, 4);
+    assert.strictEqual(r.data.review.text, "tahrirlandi");
+  });
+
   group("Admin qidiruvi");
   await it("buyurtma raqami bo'yicha topiladi", async () => {
     const all = (await call("/api/admin/orders?status=all", { as: ADMIN })).data;
