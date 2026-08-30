@@ -9,13 +9,33 @@
 //   link      → post/kanal havolasi (nakrutka)
 "use strict";
 
+// region — plitadagi burchak yorlig'i: GLOBAL / SNG (server hududi) yoki
+// AVTO / GIFTS (yetkazish turi). cover — mahsulot rasmi havolasi (admin qo'yadi).
+const REGION = {
+  "tg-premium": "AVTO",
+  "tg-stars": "AVTO",
+  "tg-gift": "GIFTS",
+  "tg-members": "AVTO",
+  "tg-views": "AVTO",
+  "tg-reactions": "AVTO",
+  "pubg": "GLOBAL",
+  "freefire": "SNG",
+  "mlbb": "GLOBAL",
+  "standoff": "GLOBAL",
+  "brawl": "GLOBAL",
+  "roblox": "GLOBAL",
+  "codm": "GLOBAL",
+  "clash": "GLOBAL",
+  "genshin": "GLOBAL",
+};
+
 const G = (id, group, icon, title, field, note, tiers) => ({
   id, category: "game", group, icon, title, field, note,
-  active: true, tiers
+  region: REGION[id] || "", cover: "", rating: 5, active: true, tiers
 });
 const T = (id, group, icon, title, field, note, tiers) => ({
   id, category: "telegram", group, icon, title, field, note,
-  active: true, tiers
+  region: REGION[id] || "", cover: "", rating: 5, active: true, tiers
 });
 // tier: { id, label, price (so'm), old (chizilgan narx, ixtiyoriy), badge, qty }
 

@@ -875,3 +875,125 @@ select.input { background-image: none; }
 
 /* Menyu qatoridagi ikkilamchi izoh */
 .menu-sub { display: block; font-size: 10.5px; font-weight: 500; color: var(--mut); margin-top: 1px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   24. Plita: muqova rasmi va burchak yorliqlari
+   Mahsulotga rasm biriktirilsa u ko'rsatiladi; bo'lmasa chizilgan ikonka
+   qoladi — ikkalasi ham bir xil o'lchamdagi kvadrat maydonda turadi.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.tile-top { height: 64px; overflow: hidden; }
+.tile.has-cover .tile-top { height: auto; aspect-ratio: 1 / 1; }
+.tile-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tile-top::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, transparent 38%, rgba(0,0,0,.42) 100%);
+  opacity: 0;
+}
+.tile.has-cover .tile-top::after { opacity: 1; }
+
+/* Hudud yorlig'i — o'ng yuqori burchak */
+.tile-region {
+  position: absolute; top: 0; right: 0; z-index: 3;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .06em;
+  padding: 3px 7px; border-radius: 0 var(--r) 0 var(--r-lg);
+  background: var(--acc); color: #04222A;
+}
+.tile-tag { top: 6px; left: 6px; right: auto; }
+
+/* ── Balans kartasi: uch tugmali variant ── */
+.bal-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 13px; }
+.bal-quick button {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 4px; border-radius: var(--r-sm);
+  border: 1px solid var(--line2); background: var(--card2);
+  font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center; color: var(--mut2);
+}
+.bal-quick .ic { width: 18px; height: 18px; color: var(--gold); }
+
+/* ── Reyting xulosasi kartasi ── */
+.ratecard {
+  display: flex; gap: 14px; align-items: stretch; margin: 0 14px;
+  padding: 14px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--sh1), var(--inset);
+}
+.rate-big { flex: 0 0 auto; text-align: center; padding-right: 14px; border-right: 1px solid var(--line); }
+.rate-v { font-family: "IBM Plex Mono", monospace; font-size: 30px; font-weight: 700; line-height: 1; color: var(--gold); }
+.rate-stars { display: flex; gap: 2px; justify-content: center; margin-top: 6px; color: var(--gold); }
+.rate-stars .ic { width: 11px; height: 11px; }
+.rate-stars .off { opacity: .25; }
+.rate-c { font-size: 10px; color: var(--mut); margin-top: 4px; }
+.rate-q { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.rate-t { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.rate-a { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+.rate-av { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto; display: grid; place-items: center;
+  font-size: 10px; font-weight: 800; background: var(--acc); color: #04222A; }
+.rate-n { font-size: 11px; color: var(--mut); }
+
+/* ── Keng qatorli karta (Top donaterlar kabi) ── */
+.wide {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  margin: 0 14px; width: calc(100% - 28px);
+  padding: 13px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--sh1), var(--inset);
+}
+.wide-ic { width: 38px; height: 38px; flex: 0 0 auto; border-radius: var(--r-sm);
+  display: grid; place-items: center; background: var(--goldsoft); border: 1px solid var(--hdrline); color: var(--gold); }
+.wide-b { flex: 1; min-width: 0; }
+.wide-t { display: block; font-size: 13.5px; font-weight: 800; letter-spacing: -.015em; }
+.wide-s { display: block; font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+/* ── Rangli havola qatorlari ── */
+.linkrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 12px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); box-shadow: var(--sh1), var(--inset); }
+.linkrow + .linkrow { margin-top: 7px; }
+.linkrow-ic { width: 36px; height: 36px; flex: 0 0 auto; border-radius: var(--r-sm);
+  display: grid; place-items: center; border: 1px solid transparent; }
+.linkrow-ic .ic { width: 18px; height: 18px; }
+.lc-acc  { background: var(--accsoft);  color: var(--acc);  border-color: var(--acc); }
+.lc-ok   { background: var(--oksoft);   color: var(--ok);   border-color: var(--ok); }
+.lc-warn { background: var(--warnsoft); color: var(--warn); border-color: var(--warn); }
+.lc-err  { background: var(--errsoft);  color: var(--err);  border-color: var(--err); }
+.lc-gold { background: var(--goldsoft); color: var(--gold); border-color: var(--gold); }
+.linkrow-t { display: block; font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+.linkrow-s { display: block; font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+/* ── Ijtimoiy tarmoqlar ── */
+.socials { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px; }
+.social { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 14px 8px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--card); }
+.social .ic { width: 22px; height: 22px; color: var(--acc); }
+.social span { font-size: 11.5px; font-weight: 700; color: var(--mut2); }
+
+/* ── Savol-javob (akkordeon) ── */
+.faq { margin: 0 14px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card); overflow: hidden; }
+.faq-i + .faq-i { border-top: 1px solid var(--line); }
+.faq-q { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; padding: 13px 12px; }
+.faq-n { width: 24px; flex: 0 0 auto; font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; font-weight: 700; color: var(--mut); }
+.faq-t { flex: 1; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.faq-q .ic { width: 15px; height: 15px; color: var(--mut); transition: transform .22s var(--ease); }
+.faq-i.open .faq-q .ic { transform: rotate(45deg); }
+.faq-a { padding: 0 12px 13px 47px; font-size: 12.5px; color: var(--mut2); line-height: 1.5; }
+
+/* ── Mahsulot sahifasi: muqova sarlavhasi ── */
+.pcover { position: relative; overflow: hidden; margin: -12px -14px 0; height: 156px;
+  background: var(--card2); }
+.pcover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pcover::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.15), var(--bg) 96%); }
+.pcover-in { position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 1;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.pcover-t { font-size: 20px; font-weight: 800; letter-spacing: -.03em; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+.pcover-s { font-size: 12px; color: var(--mut2); margin-top: 2px; }
+.pcover-rate { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 999px; background: rgba(0,0,0,.5);
+  border: 1px solid var(--hdrline); color: var(--gold);
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 700; }
+.pcover-rate .ic { width: 12px; height: 12px; }
+/* Muqovasiz mahsulotda gumbaz silueti fon bo'ladi */
+.pcover-fallback { position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--gold); opacity: .2; }
+.pcover-fallback svg { width: 92px; height: 92px; }

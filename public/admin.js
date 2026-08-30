@@ -352,8 +352,18 @@
         </select></div>
       <div class="fld"><label class="lbl">Guruh (o'yin/xizmat nomi)</label>
         <input class="input" id="fGroup" value="${esc(it.group || "")}"></div>
-      <div class="fld"><label class="lbl">Ikonka (emoji)</label>
-        <input class="input" id="fIcon" value="${esc(it.icon || "")}" maxlength="4"></div>
+      <div class="fld"><label class="lbl">Ikonka kaliti (crown, star4, target...)</label>
+        <input class="input" id="fIcon" value="${esc(it.icon || "")}" maxlength="20"></div>
+      <div class="fld"><label class="lbl">Muqova rasmi (havola)</label>
+        <input class="input" id="fCover" value="${esc(it.cover || "")}" placeholder="https://..."></div>
+      <div class="editgrid">
+        <div><label class="lbl">Hudud yorlig'i</label>
+          <input class="input" id="fRegion" value="${esc(it.region || "")}" placeholder="GLOBAL / SNG / AVTO"></div>
+        <div><label class="lbl">Reyting (1-5)</label>
+          <input class="input" id="fRating" inputmode="decimal" value="${Number(it.rating) || 5}"></div>
+      </div>
+      <div class="switch"><span class="lbl">Texnik ish (sotib bo'lmaydi)</span>
+        <span class="sw ${it.maint ? "on" : ""}" id="fMaint"><i></i></span></div>
       <div class="fld"><label class="lbl">Nomi (UZ)</label>
         <input class="input" id="fTitleUz" value="${esc((it.title || {}).uz || "")}"></div>
       <div class="fld"><label class="lbl">Nomi (RU)</label>
@@ -376,6 +386,7 @@
       <div class="hint">Saqlagach “Nashr qilish” tugmasini bosishni unutmang.</div>`);
 
     el("catBack").onclick = renderCatalog;
+    el("fMaint").onclick = () => el("fMaint").classList.toggle("on");
     el("tierAdd").onclick = () => {
       const wrap = document.createElement("div");
       wrap.innerHTML = tierRow({ id: "t" + Date.now().toString(36), label: {}, price: 0 }, el("tierRows").children.length);
@@ -389,6 +400,10 @@
       it.category = el("fCat").value;
       it.group = el("fGroup").value.trim();
       it.icon = el("fIcon").value.trim();
+      it.cover = el("fCover").value.trim();
+      it.region = el("fRegion").value.trim().toUpperCase();
+      it.rating = Math.min(5, Math.max(1, Number(el("fRating").value) || 5));
+      it.maint = el("fMaint").classList.contains("on");
       it.title = { uz: el("fTitleUz").value.trim(), ru: el("fTitleRu").value.trim() };
       it.field = el("fField").value;
       it.note = { uz: el("fNoteUz").value.trim(), ru: el("fNoteRu").value.trim() };
@@ -567,9 +582,21 @@
         minSpent: Number(r.querySelector("[data-k=min]").value) || 0,
         percent: Number(r.querySelector("[data-k=pct]").value) || 0
       })).filter(x => x.name);
+      const rows = (boxId, keys) => [...el(boxId).children].map(r => {
+        const o = {};
+        keys.forEach(k => {
+          const n = r.querySelector("[data-k=" + k + "]");
+          o[k] = n ? n.value.trim() : "";
+        });
+        return o;
+      });
       try {
         await api("/api/admin/settings", {
           body: {
+            links: rows("linkRows", ["icon", "color", "title", "sub", "url"]),
+            socials: rows("socRows", ["icon", "title", "url"]),
+            faq: rows("faqRows", ["q", "a"]),
+            about: el("sAbout").value.trim(),
             shop: {
               brand: el("sBrand").value, supportUsername: el("sSup").value,
               channelUrl: el("sChan").value, reviewsUrl: el("sRev").value,

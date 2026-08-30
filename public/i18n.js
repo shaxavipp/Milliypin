@@ -6,6 +6,9 @@
   const DICT = {
     uz: {
       "brand.sub": "Donat xizmati",
+      "home.reviewsCount": "baho",
+      "profile.socials": "Ijtimoiy tarmoqlar",
+      "profile.faq": "Tez-tez beriladigan savollar",
       "nav.catalog": "O'yinlar",
       "nav.topup": "To'ldirish",
       "home.hi": "Salom",
@@ -184,6 +187,9 @@
 
     ru: {
       "brand.sub": "Донат-сервис",
+      "home.reviewsCount": "оценок",
+      "profile.socials": "Мы в соцсетях",
+      "profile.faq": "Частые вопросы",
       "nav.catalog": "Игры",
       "nav.topup": "Пополнить",
       "home.hi": "Привет",

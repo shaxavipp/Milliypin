@@ -63,6 +63,19 @@ const DEFAULTS = {
   ],
   channels: { order: process.env.ORDER_CHAT_ID || "", topup: process.env.TOPUP_CHAT_ID || "", log: "" },
   referral: { enabled: true, percent: 3, bonus: 0 },
+  links: [
+    { icon: "info", color: "acc", title: "Balansni qanday to'ldirish?", sub: "Bosqichma-bosqich qo'llanma", url: "" },
+    { icon: "send", color: "ok", title: "Texnik yordam", sub: "Operator bilan bog'lanish", url: "" },
+    { icon: "alert", color: "warn", title: "Faqat ko'rsatilgan kartaga to'lang", sub: "Boshqa kartaga o'tkazma qaytarilmaydi", url: "" }
+  ],
+  socials: [],
+  about: "Milliy Pin — o'yin donatlari va raqamli xizmatlar uchun to'lov ilovasi.",
+  faq: [
+    { q: "To'lov necha vaqtda keladi?", a: "Odatda 5-15 daqiqada. Bank kechikishi bo'lsa 1 soatgacha cho'zilishi mumkin." },
+    { q: "Buyurtma qancha vaqtda bajariladi?", a: "Avtomatik xizmatlar bir necha daqiqada, qo'lda bajariladiganlari ish vaqtida 30 daqiqagacha." },
+    { q: "Noto'g'ri ID kiritsam nima bo'ladi?", a: "Buyurtma bajarilmaydi va summa balansingizga qaytariladi. Ma'lumotni yuborishdan oldin tekshiring." },
+    { q: "Pulni qaytarib olsam bo'ladimi?", a: "Bajarilmagan buyurtma bekor qilinsa, summa balansga to'liq qaytadi." }
+  ],
   loyalty: {
     enabled: true,
     tiers: [
@@ -413,7 +426,7 @@ function rewardOnDone(o) {
 function publicCatalog() {
   return store.productsAll(db, true).map(it => ({
     id: it.id, category: it.category, group: it.group, icon: it.icon, title: it.title,
-    field: it.field, note: it.note, image: it.image || "", maint: !!it.maint,
+    field: it.field, note: it.note, image: it.image || "", cover: it.cover || "", region: it.region || "", maint: !!it.maint,
     rating: Number(it.rating) || 5,
     tiers: (it.tiers || []).filter(t => t.active !== false)
   })).filter(it => it.tiers.length);
@@ -485,6 +498,7 @@ route("GET", "/api/config", (req, res) => {
     notice: { uz: shop.noticeUz || "", ru: shop.noticeRu || "" },
     cards: cfg("cards").map(c => ({ id: c.id, type: c.type, number: c.number, holder: c.holder })),
     referral: { enabled: !!ref.enabled, percent: ref.percent },
+    links: cfg("links"), socials: cfg("socials"), faq: cfg("faq"), about: cfg("about"),
     loyalty: { enabled: !!loy.enabled, tiers: loy.tiers },
     minTopup: MIN_TOPUP, maxTopup: MAX_TOPUP, topupMinutes: Math.round(TOPUP_TTL / 60000),
     botConfigured: !!BOT_TOKEN,
@@ -495,9 +509,15 @@ route("GET", "/api/config", (req, res) => {
 route("GET", "/api/catalog", (req, res) => sendEtag(req, res, publicCatalog()));
 
 route("GET", "/api/reviews", (req, res) => {
-  send(res, 200, store.reviewsAll(db, 40).map(r => ({
-    stars: r.stars, text: r.text, name: r.name, ts: r.ts, itemTitle: r.itemTitle
-  })));
+  const all = store.reviewsAll(db, 400);
+  const sum = all.reduce((a, r) => a + num(r.stars), 0);
+  send(res, 200, {
+    count: all.length,
+    average: all.length ? Math.round(sum / all.length * 10) / 10 : 0,
+    items: all.slice(0, 20).map(r => ({
+      stars: r.stars, text: r.text, name: r.name, ts: r.ts, itemTitle: r.itemTitle
+    }))
+  });
 });
 
 // Profildagi "Mavjud promokodlar" ro'yxati — faqat ochiq, amaldagi va limiti
@@ -784,7 +804,8 @@ route("POST", "/api/admin/catalog", (req, res) => {
       title: { uz: str((it.title || {}).uz, 80), ru: str((it.title || {}).ru, 80) },
       field: str(it.field, 20) || "playerId",
       note: { uz: str((it.note || {}).uz, 240), ru: str((it.note || {}).ru, 240) },
-      image: str(it.image, 400), active: it.active !== false, pos: i,
+      image: str(it.image, 400), cover: str(it.cover, 400),
+      region: str(it.region, 12).toUpperCase(), active: it.active !== false, pos: i,
       maint: !!it.maint, rating: Math.min(5, Math.max(1, Number(it.rating) || 5)),
       tiers: (it.tiers || []).slice(0, 40).map(t => ({
         id: str(t.id, 40) || uid7("t_"),
@@ -839,6 +860,7 @@ route("GET", "/api/admin/settings", (req, res) => {
   send(res, 200, {
     shop: cfg("shop"), cards: cfg("cards"), channels: cfg("channels"),
     referral: cfg("referral"), loyalty: cfg("loyalty"),
+    links: cfg("links"), socials: cfg("socials"), faq: cfg("faq"), about: cfg("about"),
     promos: store.promosAll(db), adminIds: ADMIN_IDS
   });
 });
@@ -863,6 +885,18 @@ route("POST", "/api/admin/settings", (req, res) => {
     if (b.channels) cfgPut("channels", {
       order: str(b.channels.order, 40), topup: str(b.channels.topup, 40), log: str(b.channels.log, 40)
     });
+    if (Array.isArray(b.links)) cfgPut("links", b.links.slice(0, 10).map(x => ({
+      icon: str(x.icon, 20) || "info",
+      color: str(x.color, 10) || "acc",
+      title: str(x.title, 80), sub: str(x.sub, 120), url: str(x.url, 300)
+    })).filter(x => x.title));
+    if (Array.isArray(b.socials)) cfgPut("socials", b.socials.slice(0, 8).map(x => ({
+      icon: str(x.icon, 20) || "send", title: str(x.title, 40), url: str(x.url, 300)
+    })).filter(x => x.title && x.url));
+    if (Array.isArray(b.faq)) cfgPut("faq", b.faq.slice(0, 20).map(x => ({
+      q: str(x.q, 160), a: str(x.a, 600)
+    })).filter(x => x.q && x.a));
+    if (b.about !== undefined) cfgPut("about", str(b.about, 400));
     if (b.referral) cfgPut("referral", {
       enabled: !!b.referral.enabled, percent: clampInt(b.referral.percent, 0, 50), bonus: clampInt(b.referral.bonus, 0, 1e7)
     });

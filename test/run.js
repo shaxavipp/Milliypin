@@ -269,7 +269,9 @@ async function main() {
     const again = await call("/api/review", { as: USER, body: { orderId: order.id, stars: 5 } });
     assert.strictEqual(again.status, 400);
     const list = await call("/api/reviews");
-    assert.ok(list.data.some(x => x.text === "Zo'r!"));
+    assert.ok(list.data.items.some(x => x.text === "Zo'r!"));
+    assert.ok(list.data.count >= 1);
+    assert.ok(list.data.average > 0 && list.data.average <= 5);
   });
 
   group("Admin katalog boshqaruvi");

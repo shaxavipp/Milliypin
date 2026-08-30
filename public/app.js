@@ -11,9 +11,9 @@
   const el = id => document.getElementById(id);
 
   const S = {
-    tab: "home", config: null, catalog: [], me: null, reviews: [], stats: null,
+    tab: "home", config: null, catalog: [], me: null, reviews: null, stats: null,
     promos: [], pending: null, timerId: 0,
-    query: "", group: "all", myPromo: ""
+    query: "", group: "all", myPromo: "", openFaq: -1
   };
   window.MP = S;
 
@@ -176,12 +176,15 @@
   function tile(it) {
     const tag = tileTag(it);
     const rate = Number(it.rating) || 5;
-    return `<button class="tile ${it.maint ? "maint" : ""}" data-item="${esc(it.id)}"
-      data-glaze="${glazeOf(it.group || it.id)}">
+    const cover = it.cover || it.image;
+    return `<button class="tile ${it.maint ? "maint" : ""} ${cover ? "has-cover" : ""}"
+      data-item="${esc(it.id)}" data-glaze="${glazeOf(it.group || it.id)}">
       <span class="tile-top">
+        ${cover ? `<img class="tile-cover" src="${esc(cover)}" alt="" loading="lazy">`
+                : (ICO(it.icon, 26) || ICO("gift", 26))}
+        ${it.region ? `<span class="tile-region">${esc(it.region)}</span>` : ""}
         ${tag && !it.maint ? `<span class="tile-tag">${esc(tag)}</span>` : ""}
         ${it.maint ? `<span class="tile-maint">${t("maint")}</span>` : ""}
-        ${ICO(it.icon, 26) || ICO("gift", 26)}
         <span class="tile-rate">${ICO("star", 9)}${rate % 1 ? rate.toFixed(1) : rate}</span>
       </span>
       <span class="tile-body">
@@ -208,9 +211,10 @@
           ${l && l.current ? `<span class="bal-tier">${esc(l.current.name)}${l.current.percent ? " · " + l.current.percent + "%" : ""}</span>` : ""}
         </div>
       </div>
-      <div class="bal-acts">
-        <button class="btn btn--gold btn-1" ${act}>${ICO("plus")}${t("home.topup")}</button>
-        <button class="btn btn--line btn-1" data-go="orders">${ICO("clock")}${t("home.history")}</button>
+      <div class="bal-quick">
+        <button ${act}>${ICO("wallet", 18)}${t("home.topup")}</button>
+        <button data-act="promos">${ICO("tag", 18)}${t("home.quickPromo")}</button>
+        <button data-act="support">${ICO("send", 18)}${t("home.quickHelp")}</button>
       </div>
     </section>`;
   }
@@ -222,11 +226,6 @@
 
     return `
       ${balanceCard()}
-
-      <div class="quick">
-        <button data-act="promos">${ICO("tag")}${t("home.quickPromo")}</button>
-        <button data-act="support">${ICO("send")}${t("home.quickHelp")}</button>
-      </div>
 
       ${notice ? `<div class="notice">${ICO("info", 15)}<span>${esc(notice)}</span></div>` : ""}
 
@@ -256,18 +255,45 @@
         <div class="stat"><div class="stat-v">24/7</div><div class="stat-k">${t("home.trust3")}</div></div>
       </div>
 
-      ${S.reviews.length ? sect(t("home.reviews"), "", "star") + `<div class="rows">
-        ${S.reviews.slice(0, 4).map(r => `<div class="row">
-          <span class="row-ic" style="color:var(--gold)">${ICO("star", 19)}</span>
-          <span class="row-b">
-            <span class="row-t">${esc(r.name || "—")} · ${"★".repeat(r.stars)}${"☆".repeat(5 - r.stars)}</span>
-            <span class="row-s">${esc(r.text || r.itemTitle || "")}</span>
-          </span>
-        </div>`).join("")}
-      </div>` : ""}
+      ${sect(t("lb.title"), "", "palak")}
+      <button class="wide" data-act="leaders">
+        <span class="wide-ic">${ICO("palak", 19)}</span>
+        <span class="wide-b">
+          <span class="wide-t">${t("lb.title")}</span>
+          <span class="wide-s">${t("lb.sub")}</span>
+        </span>
+        ${ICO("chevron", 15)}
+      </button>
+
+      ${rateCard()}
 
       <div class="center tiny mut" style="margin-top:22px">
         ${esc((S.config && S.config.brand) || "Milliy Pin")}${S.config && S.config.workHours ? " · " + esc(S.config.workHours) : ""}
+      </div>`;
+  }
+
+  // Mijozlar bahosi: o'rtacha ball, yulduzlar va oxirgi sharh
+  function rateCard() {
+    const r = S.reviews;
+    if (!r || !r.count) return "";
+    const top = (r.items || []).find(x => x.text) || r.items[0] || {};
+    const full = Math.round(r.average);
+    return sect(t("home.reviews"), "", "star") + `
+      <div class="ratecard">
+        <div class="rate-big">
+          <div class="rate-v">${r.average.toFixed(1)}</div>
+          <div class="rate-stars">
+            ${[1, 2, 3, 4, 5].map(i => `<span class="${i <= full ? "" : "off"}">${ICO("star", 11)}</span>`).join("")}
+          </div>
+          <div class="rate-c">${money(r.count)} ${t("home.reviewsCount")}</div>
+        </div>
+        <div class="rate-q">
+          <div class="rate-t">${esc(top.text || top.itemTitle || "")}</div>
+          <div class="rate-a">
+            <span class="rate-av">${esc((top.name || "M").trim().charAt(0).toUpperCase())}</span>
+            <span class="rate-n">${esc(top.name || "—")}</span>
+          </div>
+        </div>
       </div>`;
   }
 
@@ -391,6 +417,10 @@
     const left = l && l.next ? Math.max(0, l.next.minSpent - me.spent) : 0;
     const pct = l && l.next && l.next.minSpent ? Math.min(100, Math.round(me.spent / l.next.minSpent * 100)) : 0;
 
+    const links = (c.links || []).filter(x => x.title);
+    const socials = c.socials || [];
+    const faq = c.faq || [];
+
     const link = (icon, text, val, href) =>
       `<button class="menu-i" data-open="${esc(href)}">
         ${ICO(icon)}<span class="menu-t">${text}</span>
@@ -467,11 +497,43 @@
         ${c.reviewsUrl ? link("star", t("profile.reviews"), "", c.reviewsUrl) : ""}
       </div>
 
+      ${links.length ? sect(t("topup.links"), "", "list") + `<div class="wrap">
+        ${links.map(x => {
+          const tag = x.url ? "button" : "div";
+          return `<${tag} class="linkrow"${x.url ? ` data-open="${esc(x.url)}"` : ""}>
+            <span class="linkrow-ic lc-${esc(x.color || "acc")}">${ICO(x.icon || "info", 18)}</span>
+            <span style="flex:1;min-width:0">
+              <span class="linkrow-t">${esc(x.title)}</span>
+              ${x.sub ? `<span class="linkrow-s">${esc(x.sub)}</span>` : ""}
+            </span>
+            ${x.url ? ICO("chevron", 15) : ""}
+          </${tag}>`;
+        }).join("")}
+      </div>` : ""}
+
+      ${socials.length ? sect(t("profile.socials"), "", "megaphone") + `<div class="socials">
+        ${socials.map(x => `<button class="social" data-open="${esc(x.url)}">
+          ${ICO(x.icon || "send", 22)}<span>${esc(x.title)}</span>
+        </button>`).join("")}
+      </div>` : ""}
+
+      ${faq.length ? sect(t("profile.faq"), "", "info") + `<div class="faq" id="faqBox">
+        ${faq.map((x, i) => `<div class="faq-i ${i === S.openFaq ? "open" : ""}">
+          <button class="faq-q" data-faq="${i}">
+            <span class="faq-n">${String(i + 1).padStart(2, "0")}</span>
+            <span class="faq-t">${esc(x.q)}</span>
+            ${ICO("plus", 15)}
+          </button>
+          ${i === S.openFaq ? `<div class="faq-a">${esc(x.a)}</div>` : ""}
+        </div>`).join("")}
+      </div>` : ""}
+
       ${me.isAdmin ? `<div class="menu">
         <button class="menu-i" data-act="admin">${ICO("shield")}<span class="menu-t">${t("profile.admin")}</span><span class="menu-v">${ICO("chevron", 14)}</span></button>
       </div>` : ""}
 
-      <div class="center tiny mut" style="margin-top:20px">Milliy Pin · v1.2</div>`;
+      ${c.about ? `<div class="center tiny mut" style="margin:20px 14px 0;line-height:1.5">${esc(c.about)}</div>` : ""}
+      <div class="center tiny mut" style="margin-top:10px">Milliy Pin · v1.3</div>`;
   }
 
   /* ══════════ Mahsulot oynasi ══════════ */
@@ -510,13 +572,18 @@
     const f = FIELD[it.field] || FIELD.playerId;
     const note = pick(it.note);
     const head = headParts(it);
+    const cover = it.cover || it.image;
 
     openSheet(pick(it.title), `
-      <div class="phead">
-        <span class="phead-ic" style="color:var(--acc)">${ICO(it.icon, 24) || ICO("gift", 24)}</span>
-        <div style="min-width:0">
-          <div class="phead-t">${esc(head.main)}</div>
-          <div class="phead-s">${esc(head.sub)}</div>
+      <div class="pcover">
+        ${cover ? `<img src="${esc(cover)}" alt="">`
+                : `<span class="pcover-fallback"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>`}
+        <div class="pcover-in">
+          <div style="min-width:0">
+            <div class="pcover-t">${esc(head.main)}</div>
+            <div class="pcover-s">${esc(head.sub)}</div>
+          </div>
+          <span class="pcover-rate">${ICO("star", 12)}${Number(it.rating) || 5}</span>
         </div>
       </div>
 
@@ -967,6 +1034,14 @@
     }
     if (e.target.closest("[data-close]")) return closeSheet();
 
+    const fq = e.target.closest("[data-faq]");
+    if (fq) {
+      const i = Number(fq.getAttribute("data-faq"));
+      S.openFaq = S.openFaq === i ? -1 : i;
+      haptic();
+      return render();
+    }
+
     const lang = e.target.closest("[data-lang]");
     if (lang) return setLang(lang.getAttribute("data-lang"));
 
@@ -1025,7 +1100,7 @@
   }
   const loadCatalog = () => api("/api/catalog").then(c => { S.catalog = c || []; }).catch(() => {});
   const loadConfig = () => api("/api/config").then(c => { S.config = c; }).catch(() => {});
-  const loadReviews = () => api("/api/reviews").then(c => { S.reviews = c || []; }).catch(() => {});
+  const loadReviews = () => api("/api/reviews").then(c => { S.reviews = c || null; }).catch(() => {});
   const loadStats = () => api("/api/stats").then(c => { S.stats = c; }).catch(() => {});
   const loadPromos = () => api("/api/promos").then(c => { S.promos = c || []; }).catch(() => {});
 

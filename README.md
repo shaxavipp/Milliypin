@@ -13,6 +13,7 @@ qo'yilgan. Kunduzgi mavzu — "saman va sopol" (Rishton kulolchiligi).
 |---|---|
 | Palitra | Tungi lojuvard osmon `#070C18`, gumbaz feruzasi `#2FA8C4`, zar `#D6A94A`, sopol `#C4664A` |
 | Tarixiy belgilar | Go'ri Amir gumbazi (balans kartasi va banner), madrasa ayvoni — takrorlanuvchi sivri yoylar galereyasi (banner poydevori), Registon peshtoqi (navigatsiya va bo'lim sarlavhasi), minora, suzani palagi |
+| Plita | Mahsulot rasmi (admin qo'yadi) yoki chizilgan ikonka; hudud yorlig'i (GLOBAL / SNG / AVTO / GIFTS), reyting va chegirma foizi |
 | Bezak to'ri | Girih — sakkiz qirrali yulduz + burilgan kvadrat; koshin haoshiyasi (uchburchak-nuqta zanjirasi) sarlavha ostida |
 | Ikonkalar | **Emoji yo'q.** 45 dan ortiq ikonka bitta qo'lda chizilgan: 24×24 to'r, 1.6px chiziq (`public/icons.js`) |
 | Shrift | `Archivo` — interfeys; `IBM Plex Mono` + `tabular-nums` — barcha raqamlar |
@@ -27,11 +28,11 @@ turadi (Telegram Premium, Stars, sovg'alar, kanal xizmatlari).
 
 | Sahifa | Nimalar bor |
 |---|---|
-| **Bosh** | Salomlashuv, balans kartasi, tezkor tugmalar (promokod / yordam), banner, ommabop xizmatlar to'ri, statistika, sharhlar |
+| **Bosh** | Salomlashuv, uch tugmali balans kartasi (to'ldirish / promokod / yordam), banner, ommabop xizmatlar to'ri, statistika, Top donaterlar, mijozlar bahosi kartasi |
 | **O'yinlar** | Qidiruv, guruh filtrlari, 3 ustunli katalog. Har plitada reyting va chegirma foizi; texnik ishdagi xizmat xiralashadi va sotib olinmaydi |
 | **To'ldirish** | Balans, to'lov usullari (UZCARD / HUMO), eng kam summa, "Qanday to'ldirish?" va texnik yordam havolalari |
 | **Buyurtma** | Buyurtmalar va to'lovlar tarixi, bajarilganini baholash |
-| **Profil** | Statistika, daraja, promokod kiritish va mavjud promokodlar ro'yxati, referal va Top donaterlar kartochkalari, til/mavzu, yordam havolalari, admin panel |
+| **Profil** | Statistika, daraja, promokod kiritish va mavjud promokodlar ro'yxati, referal va Top donaterlar kartochkalari, til/mavzu, rangli yordam havolalari, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
 
 Mahsulot oynasi: sarlavha kartasi (o'yin nomi + valyuta turi), ID/username maydoni,
 paketlar ro'yxati, promokod, izoh, hisob-kitob va yopishqoq "Sotib olish" paneli.
@@ -65,52 +66,109 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 - Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
 - To'lovlar: kutayotgan to'lovni tasdiqlash yoki rad etish
 - Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
-- Katalog: mahsulot va paketlarni qo'shish/tahrirlash/tartiblash, reyting va "texnik ish" holati → **Nashr qilish**
+- Katalog: mahsulot va paketlar, muqova rasmi havolasi, hudud yorlig'i, reyting va
+  "texnik ish" holati → **Nashr qilish**
 - Promokodlar: foiz yoki so'mda, limit va min. buyurtma bilan
-- Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni
+- Sozlamalar: kartalar, kanallar (chat_id), referal foizi, sodiqlik darajalari, e'lon matni,
+  yordam havolalari, ijtimoiy tarmoqlar, savol-javob va "ilova haqida" matni
 - Tarqatma: barcha foydalanuvchilarga xabar
 
 ---
 
-## Ishga tushirish
+## Ishga tushirish — 5 qadam
 
 Talab: **Node.js 22.5+** (ichki `node:sqlite` moduli uchun). Tashqi kutubxona **yo'q**.
 
+### 1-qadam. Bot yaratish
+
+Telegramda **@BotFather** ga kiring:
+
+```
+/newbot          → bot nomi va username beriladi
+                   javobda TOKEN keladi: 8123456789:AAF...
+```
+
+O'zingizning Telegram ID'ingizni bilish uchun **@userinfobot** ga `/start` yozing —
+u raqamli ID beradi (masalan `5606872249`). Bu ID admin panelni ochish uchun kerak.
+
+### 2-qadam. Kodni GitHub'ga qo'yish
+
+Repozitoriy allaqachon GitHub'da bo'lsa, shu branchni `main` ga qo'shing yoki
+to'g'ridan-to'g'ri shu branchdan deploy qiling.
+
+### 3-qadam. Railway'ga deploy
+
+1. [railway.com](https://railway.com) → **Login with GitHub**.
+2. **New Project → Deploy from GitHub repo** → shu repozitoriyni tanlang.
+   Railway `package.json` ni ko'rib Node.js ekanini o'zi aniqlaydi va `npm start` ni ishga tushiradi.
+3. Service → **Variables** → **New Variable** bo'limida ikkita qiymat qo'shing:
+
+   | Nomi | Qiymati |
+   |---|---|
+   | `BOT_TOKEN` | BotFather bergan token |
+   | `ADMIN_IDS` | Sizning Telegram ID'ingiz (bir nechta bo'lsa vergul bilan) |
+
+4. Service → **Settings → Networking → Generate Domain** →
+   `xxxxx.up.railway.app` havolasi chiqadi. Uni brauzerda ochib tekshiring —
+   ilova ochilishi kerak (Telegramdan tashqarida "Ilovani Telegram orqali oching" deb yozadi, bu normal).
+5. **Muhim:** service → **Add Volume** → mount path `/data`.
+   Volume bo'lmasa baza har deploy'da o'chib ketadi (balanslar, buyurtmalar yo'qoladi).
+
+### 4-qadam. Botni ilovaga ulash
+
+@BotFather da:
+
+```
+/mybots → botingiz → Bot Settings → Menu Button
+          → havola: https://xxxxx.up.railway.app
+
+/mybots → botingiz → Configure Mini App → Enable
+          → o'sha havolani qo'ying
+```
+
+Keyin `/start` va bank SMS'ini o'qish ishlashi uchun webhook o'rnating —
+brauzerda shu manzilni oching (TOKEN va domenni o'zingiznikiga almashtiring):
+
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://xxxxx.up.railway.app/tg/webhook
+```
+
+`{"ok":true}` javobi kelsa — tayyor.
+
+### 5-qadam. Ilovani sozlash
+
+Botni oching → ilovaga kiring → **Profil → Admin panel** (faqat `ADMIN_IDS` dagilarga ko'rinadi):
+
+1. **Sozlamalar** → o'z kartalaringizni kiriting (HUMO / UZCARD raqami va egasi),
+   support username va kanal havolasini yozing → **Saqlash**.
+2. **Sozlamalar → Kanallar** → buyurtmalar va to'lovlar uchun kanal `chat_id` sini kiriting,
+   yonidagi tugma bilan sinov xabari yuboring. Bot o'sha kanalda **admin** bo'lishi shart.
+3. **Katalog** → narxlarni o'zgartiring, mahsulotga rasm havolasi va hudud yorlig'ini qo'ying →
+   **Nashr qilish** tugmasini bosing (shundagina o'zgarish mijozlarga ko'rinadi).
+
+### Mahalliy kompyuterda sinash
+
 ```bash
-BOT_TOKEN=123456:AA...  ADMIN_IDS=5606872249  node server.js
+git clone <repo>
+cd Milliypin
+BOT_TOKEN=8123456789:AAF... ADMIN_IDS=5606872249 npm start
 # http://localhost:3000
 ```
 
-### Railway / Render'ga deploy
-
-1. Repozitoriyni GitHub'ga yuklang.
-2. **Railway → New Project → Deploy from GitHub repo** → shu repo. `npm start` avtomatik ishga tushadi.
-3. **Variables** bo'limiga quyidagilarni qo'shing (pastdagi jadval).
-4. **Settings → Networking → Generate Domain** → `xxx.up.railway.app` havolasini oling.
-5. Tavsiya: **Add Volume**, mount path `/data` — shunda baza qayta deploy'da saqlanib qoladi.
-   Volume bo'lmasa, ma'lumot loyiha ichidagi `./data` papkaga yoziladi va deploy'da yo'qoladi.
+Telegramsiz brauzerda katalog ko'rinadi, lekin xarid qilib bo'lmaydi —
+imzo tekshiruvi Telegram ichida ishlaydi.
 
 ### Muhit o'zgaruvchilari
 
 | O'zgaruvchi | Majburiy | Nima uchun |
 |---|---|---|
-| `BOT_TOKEN` | ha | @BotFather bergan token. Bo'lmasa initData imzosi tekshirilmaydi va API yopiq turadi. |
+| `BOT_TOKEN` | ha | @BotFather bergan token. Bo'lmasa API yopiq turadi. |
 | `ADMIN_IDS` | ha | Vergul bilan ajratilgan Telegram ID'lar — faqat shular admin panelni ochadi. |
 | `PORT` | — | Standart 3000 (Railway o'zi beradi). |
 | `DATA_DIR` | — | Baza papkasi. Standart `/data`, yozib bo'lmasa `./data`. |
 | `TG_WEBHOOK_SECRET` | — | `setWebhook` dagi `secret_token` bilan bir xil bo'lsin — begona so'rovlarni to'sadi. |
 | `SUPPORT_USERNAME` | — | Boshlang'ich support username (keyin admin paneldan o'zgartiriladi). |
 | `ORDER_CHAT_ID` / `TOPUP_CHAT_ID` | — | Kanallarning boshlang'ich qiymati (keyin admin panel ustun turadi). |
-
-### BotFather sozlamalari
-
-1. `/mybots` → botingiz → **Bot Settings → Menu Button** → havola: sizning domeningiz.
-2. `/mybots` → **Configure Mini App** → o'sha havola.
-3. Bot xabarlari va `/start` ishlashi uchun webhook o'rnating:
-
-```bash
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<domen>/tg/webhook&secret_token=<TG_WEBHOOK_SECRET>"
-```
 
 ---
 
