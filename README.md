@@ -34,9 +34,14 @@ turadi (Telegram Premium, Stars, sovg'alar, kanal xizmatlari).
 | **Buyurtma** | "Buyurtmalar / To'lovlar" segmenti, holat filtri, ixcham qatorlar; qator bosilsa tafsilot oynasi (qayta buyurtma va baholash tugmalari bilan) |
 | **Profil** | Statistika, daraja, promokod oynasi, sodiqlik / referal / Top donaterlar / yordam qatorlari, til va mavzu, bildirishnoma va animatsiya kalitlari, havolalar, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
 
-Mahsulot oynasi: sarlavhada mahsulot belgisi va nomi, ostida valyuta turi va hudud,
-ID/username maydoni va **saqlangan ID chiplari**, paketlar ro'yxati, yig'iladigan
-promokod va izoh bo'limlari, hisob-kitob va yopishqoq "Sotib olish" paneli.
+Mahsulot oynasi o'yin do'konlaridagidek yig'ilgan: yuqorida **muqova rasmi**
+(ustida nom, valyuta turi, hudud yorlig'i, sevimlilar belgisi va haqiqiy
+sharhlardan hisoblangan baho), ostida **ID maydoni** — yonida "Tekshirish" va
+"Qayerdan olinadi?" tugmalari hamda saqlangan ID chiplari, keyin **paket
+kartochkalari** ikki ustunda (rasm, miqdor, narx, chizilgan eski narx).
+Mahsulot ichida bo'limlar bo'lsa ("UC" va "To'plamlar" kabi) ular yuqorida
+yorliq bo'lib chiqadi. Eng ostida yig'iladigan promokod va izoh, hisob-kitob
+va yopishqoq "Sotib olish" paneli.
 
 Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
 
@@ -57,6 +62,10 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   (@username / Player ID / ID+Zone / nik / havola)
 - **Saqlangan ID'lar**: mahsulotga ilgari kiritilgan ID chip sifatida turadi —
   har safar qo'lda yozish shart emas
+- **Sevimlilar**: mahsulot muqovasidagi yurak belgisi bosilsa mahsulot profildagi
+  ro'yxatga tushadi (serverda saqlanadi, qurilma almashsa ham qoladi)
+- **ID tekshirish**: kiritilgan ID formati darhol tekshiriladi — noto'g'ri
+  terilgan raqam buyurtmadan oldin aytiladi
 - Bosh sahifada **"Yana buyurtma qilish"** tasmasi — oxirgi olingan mahsulotlar
 - Buyurtmalar tarixi: "Buyurtmalar / To'lovlar" segmenti, holat filtri,
   qator bosilsa **tafsilot oynasi** (raqam, ma'lumot, summa, chegirma, keshbek,
@@ -87,11 +96,12 @@ Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
 | **Buyurtmalar** | Holat filtri va #raqam / @username / ID / mahsulot bo'yicha qidiruv; "Olindi / Bajarildi / Bekor". Bajarilganda ixtiyoriy izoh (kod, havola) mijozga xabar bilan boradi; bekor qilinganda sabab yoziladi va pul avtomatik qaytadi |
 | **To'lovlar** | Holat filtri va ID / @username / summa bo'yicha qidiruv (qidirilganda filtr o'zi "Hammasi" ga o'tadi) |
 | **Mijozlar** | Qidiruv, balans +/−, bloklash, tarix va mijozga shaxsiy xabar yuborish |
-| **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
+| **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); muqova va paket rasmlari **telefondan yuklanadi**, paketga bo'lim nomi beriladi; yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
 | **Promokodlar** | Foiz yoki so'mda, limit, min. buyurtma va mijozga ko'rinadigan izoh bilan |
-| **Sharhlar** | Mijoz sharhlarini ko'rish va nomaqbulini o'chirish |
+| **Sharhlar** | Mijoz sharhlarini ko'rish, tahrirlash (baho, nom, matn) va nomaqbulini o'chirish |
 | **Sozlamalar** | Kartalar, kanallar (chat_id), referal, sodiqlik darajalari, yordam havolalari, ijtimoiy tarmoqlar, savol-javob, e'lon va "ilova haqida" matni |
 | **Tarqatma** | Barcha foydalanuvchilarga xabar |
+| **Tahlil** | 30 kunlik savdo grafigi, bugun/hafta/oy tushumi, oyning ko'p sotilganlari, yangi va faol mijozlar, **qaytmagan mijozlar** ro'yxati (har biriga xabar yuborish tugmasi bilan) |
 | **Zaxira / JSON** | Katalogni JSON sifatida eksport qilish va qaytadan import qilish |
 | **CSV Telegramga** | Buyurtmalar hisobotini adminning shaxsiy chatiga hujjat sifatida yuborish |
 
@@ -172,6 +182,21 @@ Botni oching → ilovaga kiring → **Profil → Admin panel** (faqat `ADMIN_IDS
 3. **Katalog** → narxlarni o'zgartiring, mahsulotga rasm havolasi va hudud yorlig'ini qo'ying →
    **Nashr qilish** tugmasini bosing (shundagina o'zgarish mijozlarga ko'rinadi).
 
+### Rasmlar
+
+Mahsulot muqovasi va paket rasmlari admin panelidan **telefondan tanlanadi**:
+brauzer rasmni 512px (paket rasmini 300px) gacha kichraytiradi, server uni
+`DATA_DIR/img` papkasiga yozadi va katalogda faqat qisqa manzil qoladi
+(`/img/xxxx.jpg`). Shuning uchun:
+
+- katalog javobi kichik bo'lib qoladi — ilova tez ochiladi;
+- rasmlar brauzerda bir yil keshlanadi;
+- Railway'da **volume `/data` ga ulangan bo'lsa** rasmlar deploy'dan keyin ham
+  saqlanib qoladi (volume bo'lmasa rasmlar ham, baza ham o'chib ketadi).
+
+Xohlasangiz tashqi havola (`https://...`) ham yozish mumkin — maydonga
+qo'lda kiritiladi.
+
 ### Mahalliy kompyuterda sinash
 
 ```bash
@@ -251,8 +276,8 @@ public/
   icons.js       Qo'lda chizilgan SVG ikonkalar to'plami
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
-  admin.js       Admin panel (10 bo'lim)
-test/run.js      64 ta integratsion test — npm test
+  admin.js       Admin panel (11 bo'lim)
+test/run.js      76 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
