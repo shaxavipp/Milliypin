@@ -113,12 +113,18 @@
 
   // opts.icon berilsa sarlavha yonida mahsulot belgisi ko'rinadi — shunda
   // nomni oyna ichida takror yozish shart emas.
+  // opts.foot — pastda doim ko'rinib turadigan amal paneli. U oynaning
+  // suriladigan qismidan TASHQARIDA turadi: ilgari yopishqoq panel oxirgi
+  // qatorni (masalan "Jami to'lov") bosib qolar, uni ko'rish imkonsiz edi.
   function openSheet(title, html, cb, opts) {
     const ic = el("sheetIcon");
     ic.innerHTML = (opts && opts.icon) || "";
     ic.hidden = !(opts && opts.icon);
     ic.setAttribute("data-glaze", (opts && opts.glaze) || "0");
     el("sheetTitle").textContent = title || "";
+    const foot = el("sheetFoot");
+    foot.innerHTML = (opts && opts.foot) || "";
+    foot.hidden = !(opts && opts.foot);
     el("sheetBody").innerHTML = html;
     el("sheetWrap").hidden = false;
     el("sheetBody").scrollTop = 0;
@@ -130,6 +136,8 @@
   function closeSheet() {
     if (el("sheetWrap").hidden) return;
     el("sheetWrap").hidden = true;
+    el("sheetFoot").hidden = true;
+    el("sheetFoot").innerHTML = "";
     document.body.style.overflow = "";
     clearInterval(S.timerId);
     sheetBack = null;
@@ -871,10 +879,11 @@
         <div class="calc-r calc-r--total"><span>${t("prod.total")}</span><b class="price" id="cTot"></b></div>
       </div>
 
-      <div class="buybar" id="buyBox"></div>`, null, {
+      `, null, {
       icon: (cover ? `<img src="${esc(cover)}" alt="" onerror="this.remove()">` : "") +
             (ICO(it.icon, 20) || ICO("gift", 20)),
-      glaze: glazeOf(it.group || it.id)
+      glaze: glazeOf(it.group || it.id),
+      foot: `<div id="buyBox"></div>`
     });
 
     el("tierBox").addEventListener("click", e => {
@@ -1055,8 +1064,9 @@
         </button>`).join("")}
       </div>
 
-      <div class="hint" style="margin-top:12px">${ICO("lock", 13)}<span>${t("topup.rules")}</span></div>
-      <div class="buybar"><button class="btn btn--gold btn-w" id="next">${t("topup.next")}${ICO("chevron")}</button></div>`);
+      <div class="hint" style="margin-top:12px">${ICO("lock", 13)}<span>${t("topup.rules")}</span></div>`,
+      null, { icon: ICO("wallet", 20), glaze: 2,
+        foot: `<button class="btn btn--gold btn-w" id="next">${t("topup.next")}${ICO("chevron")}</button>` });
 
     el("chips").addEventListener("click", e => {
       const b = e.target.closest("[data-amt]");
@@ -1122,11 +1132,11 @@
       <div class="timer-row">${ICO("clock", 16)}<span class="timer" id="tm">--:--</span></div>
       <div class="timer-bar"><i id="tmbar" style="width:100%"></i></div>
 
-      <div class="buybar">
-        <button class="btn btn--acc btn-w" id="paid">${ICO("check")}${t("topup.paid")}</button>
-        <button class="btn btn--danger btn-w" id="cancel" style="margin-top:8px">${t("topup.cancel")}</button>
-      </div>
-    `, () => { S.pending = null; });
+    `, () => { S.pending = null; }, {
+      icon: ICO("clock", 20), glaze: 2,
+      foot: `<button class="btn btn--acc btn-w" id="paid">${ICO("check")}${t("topup.paid")}</button>
+             <button class="btn btn--danger btn-w" id="cancel" style="margin-top:8px">${t("topup.cancel")}</button>`
+    });
 
     el("sheetBody").addEventListener("click", e => {
       const c = e.target.closest("[data-copy]");

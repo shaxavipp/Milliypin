@@ -836,8 +836,11 @@ select.input { background-image: none; }
 .dl-r > b { font-weight: 700; text-align: right; min-width: 0; word-break: break-word; }
 
 /* Mahsulot sahifasi: yopishqoq sotib olish paneli */
-.buybar {
-  position: sticky; bottom: 0; margin: 14px -14px calc(-20px - var(--safe-b));
+/* Oyna poydevori — suriladigan qismdan tashqarida turadigan amal paneli.
+   Shu sabab oxirgi qator (masalan "Jami to'lov") hech qachon uning ostida
+   qolib ketmaydi: mazmun poydevorgacha suriladi va to'liq ko'rinadi. */
+.sh-foot {
+  flex: 0 0 auto;
   padding: 11px 14px calc(11px + var(--safe-b));
   background: var(--hdr); backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass);
   border-top: 1px solid var(--hdrline);
