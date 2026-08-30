@@ -421,17 +421,36 @@
     const socials = c.socials || [];
     const faq = c.faq || [];
 
-    const link = (icon, text, val, href) =>
-      `<button class="menu-i" data-open="${esc(href)}">
-        ${ICO(icon)}<span class="menu-t">${text}</span>
-        <span class="menu-v">${val ? esc(val) : ""}${ICO("chevron", 14)}</span></button>`;
+    const notifOn = me.notifEnabled !== false;
+    const refSub = c.referral && c.referral.enabled
+      ? t("ref.desc", { p: c.referral.percent }) : t("ref.cardSub");
+    const loyaltySub = l && l.current
+      ? l.current.name + (l.current.percent ? " · " + l.current.percent + "%" : "") +
+        (l.next ? " · " + t("profile.toNext").toLowerCase() + " " + som(left) : "")
+      : "—";
+
+    // Rangli ikonkali qator: chapda ikonka, o'rtada nom va izoh, o'ngda boshqaruv
+    // (segment yoki kalit) yoxud o'q. attr berilsa qator bosiladigan bo'ladi.
+    const svc = (icon, color, title, sub, right, attr) => {
+      const tag = attr ? "button" : "div";
+      return `<${tag} class="svc"${attr ? " " + attr : ""}>
+        <span class="svc-ic lc-${color}">${ICO(icon, 17)}</span>
+        <span class="svc-b">
+          <span class="svc-t">${title}</span>
+          ${sub ? `<span class="svc-s">${esc(sub)}</span>` : ""}
+        </span>
+        <span class="svc-r">${right || (attr ? ICO("chevron", 14) : "")}</span>
+      </${tag}>`;
+    };
 
     return `
       <div class="prof">
         <div class="prof-av">${esc((u.first_name || "M").trim().charAt(0).toUpperCase())}</div>
         <div style="min-width:0">
           <div class="prof-n">${esc(u.first_name || t("home.guest"))} ${esc(u.last_name || "")}</div>
-          <div class="prof-id">${u.username ? "@" + esc(u.username) + " · " : ""}ID ${esc(me.id || "—")}</div>
+          <button class="idcopy" data-copy="${esc(me.id || "")}">
+            ${u.username ? "@" + esc(u.username) + " · " : ""}ID ${esc(me.id || "—")}${ICO("copy", 12)}
+          </button>
           ${l && l.current ? `<div class="prof-tier">${esc(l.current.name)}</div>` : ""}
         </div>
       </div>
@@ -468,34 +487,33 @@
         </div>
       </div>
 
-      <div class="duo-big">
-        <button class="bigcard" data-act="referral">
-          ${ICO("users", 21)}
-          <div class="t">${t("ref.card")}</div>
-          <div class="d">${t("ref.cardSub")}</div>
-        </button>
-        <button class="bigcard" data-act="leaders">
-          ${ICO("palak", 21)}
-          <div class="t">${t("lb.title")}</div>
-          <div class="d">${t("lb.sub")}</div>
-        </button>
+      <div class="menu">
+        ${svc("palak", "gold", t("profile.loyalty"), loyaltySub, "", 'data-act="loyalty"')}
+        ${svc("users", "acc", t("ref.card"), refSub, "", 'data-act="referral"')}
+        ${svc("star", "clay", t("lb.title"), t("lb.sub"), "", 'data-act="leaders"')}
+        ${c.support ? svc("send", "ok", t("profile.support"), "@" + c.support, "",
+            'data-open="https://t.me/' + esc(c.support) + '"') : ""}
       </div>
 
       <div class="menu">
-        <div class="menu-i">${ICO("globe")}<span class="menu-t">${t("profile.lang")}</span>
-          <span class="seg">
-            ${window.I18N.langs.map(x => `<button class="${x === window.I18N.lang ? "on" : ""}" data-lang="${x}">${x.toUpperCase()}</button>`).join("")}
-          </span></div>
-        <button class="menu-i" data-act="theme">${ICO(themeNow() === "dark" ? "moon" : "sun")}
-          <span class="menu-t">${t("profile.theme")}</span>
-          <span class="menu-v">${themeNow() === "dark" ? t("profile.dark") : t("profile.light")}</span></button>
+        ${svc("globe", "acc", t("profile.lang"), "",
+          `<span class="seg">${window.I18N.langs.map(x =>
+            `<button class="${x === window.I18N.lang ? "on" : ""}" data-lang="${x}">${x.toUpperCase()}</button>`).join("")}</span>`)}
+        ${svc(themeNow() === "dark" ? "moon" : "sun", "warn", t("profile.theme"), "",
+          `<span class="seg">
+             <button class="${themeNow() === "dark" ? "on" : ""}" data-settheme="dark">${ICO("moon", 13)}</button>
+             <button class="${themeNow() === "light" ? "on" : ""}" data-settheme="light">${ICO("sun", 13)}</button>
+           </span>`)}
+        ${svc("megaphone", "err", t("profile.notif"), t("profile.notifSub"),
+          `<span class="sw-sm ${notifOn ? "on" : ""}" id="notifSw"><i></i></span>`)}
       </div>
 
-      <div class="menu">
-        ${c.support ? link("send", t("profile.support"), "@" + c.support, "https://t.me/" + c.support) : ""}
-        ${c.channelUrl ? link("megaphone", t("profile.channel"), "", c.channelUrl) : ""}
-        ${c.reviewsUrl ? link("star", t("profile.reviews"), "", c.reviewsUrl) : ""}
-      </div>
+      ${c.channelUrl || c.reviewsUrl ? `<div class="menu">
+        ${c.channelUrl ? svc("megaphone", "acc", t("profile.channel"), c.channelUrl, "",
+            'data-open="' + esc(c.channelUrl) + '"') : ""}
+        ${c.reviewsUrl ? svc("star", "gold", t("profile.reviews"), "", "",
+            'data-open="' + esc(c.reviewsUrl) + '"') : ""}
+      </div>` : ""}
 
       ${links.length ? sect(t("topup.links"), "", "list") + `<div class="wrap">
         ${links.map(x => {
@@ -529,7 +547,7 @@
       </div>` : ""}
 
       ${me.isAdmin ? `<div class="menu">
-        <button class="menu-i" data-act="admin">${ICO("shield")}<span class="menu-t">${t("profile.admin")}</span><span class="menu-v">${ICO("chevron", 14)}</span></button>
+        ${svc("shield", "gold", t("profile.admin"), t("profile.adminSub"), "", 'data-act="admin"')}
       </div>` : ""}
 
       ${c.about ? `<div class="center tiny mut" style="margin:20px 14px 0;line-height:1.5">${esc(c.about)}</div>` : ""}
@@ -862,16 +880,120 @@
       encodeURIComponent(link) + "&text=" + encodeURIComponent(t("ref.shareText")));
   }
 
+  const LB_PERIODS = ["today", "week", "month", "all"];
+
+  function podiumHTML(list) {
+    const top = list.slice(0, 3);
+    if (!top.length) return "";
+    const byRank = {};
+    top.forEach(x => { byRank[x.rank] = x; });
+    // Ko'rinish tartibi: 2-chi chapda, 1-chi markazda, 3-chi o'ngda
+    return `<div class="podium">${[2, 1, 3].map(pos => {
+      const r = byRank[pos];
+      if (!r) return `<div class="pod pod-${pos}"></div>`;
+      return `<div class="pod pod-${pos}">
+        <span class="pod-ring">
+          <span class="pod-av">${esc(r.name.trim().charAt(0).toUpperCase())}</span>
+          <span class="pod-medal">${pos}</span>
+        </span>
+        <span class="pod-n">${esc(r.name)}</span>
+        <span class="pod-v">${money(r.total)}</span>
+        <span class="pod-c">${r.count} ${t("lb.orders")}</span>
+        <span class="pod-bar">${pos}</span>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
+  const lbRow = r => `<div class="lb-row">
+    <span class="lb-rank">${r.rank}</span>
+    <span class="lb-n">${esc(r.name)}<span class="lb-c">${r.count} ${t("lb.orders")}</span></span>
+    <span class="lb-v">${money(r.total)}</span>
+  </div>`;
+
   async function openLeaders() {
-    openSheet(t("lb.title"), `<div class="skel"></div>`);
-    let list = [];
-    try { list = await api("/api/leaderboard"); } catch (e) {}
-    el("sheetBody").innerHTML = list.length ? `<div class="lb">
-      ${list.slice(0, 50).map(x => `<div class="lb-row">
-        <span class="lb-rank">${x.rank}</span>
-        <span class="lb-n">${esc(x.name)}${x.username ? " · @" + esc(x.username) : ""}</span>
-        <span class="lb-v">${money(x.spent)}</span>
-      </div>`).join("")}</div>` : empty("palak", t("lb.empty"));
+    let period = "all";
+
+    openSheet(t("lb.title"), `
+      <div class="lb-period" id="lbSeg">
+        ${LB_PERIODS.map(p => `<button data-period="${p}" class="${p === period ? "on" : ""}">${t("lb." + p)}</button>`).join("")}
+      </div>
+      <div id="lbBody"><div class="skel"></div></div>`);
+
+    async function load() {
+      const box = el("lbBody");
+      box.innerHTML = `<div class="skel"></div>`;
+      let r;
+      try { r = await api("/api/leaderboard?period=" + period); }
+      catch (e) { box.innerHTML = `<div class="errline">${esc(errText(e))}</div>`; return; }
+
+      const list = r.leaderboard || [];
+      if (!list.length) { box.innerHTML = empty("palak", t("lb.empty")); return; }
+
+      const rest = list.slice(3);
+      box.innerHTML =
+        (r.me && r.me.rank ? `<div class="lb-row lb-me">
+            <span class="lb-rank">${r.me.rank}</span>
+            <span class="lb-n">${t("lb.you")}<span class="lb-c">${r.me.count} ${t("lb.orders")}</span></span>
+            <span class="lb-v">${money(r.me.total)}</span>
+          </div>` : "") +
+        podiumHTML(list) +
+        (rest.length ? `<div class="lb">${rest.map(lbRow).join("")}</div>` : "");
+    }
+
+    el("lbSeg").addEventListener("click", e => {
+      const b = e.target.closest("[data-period]");
+      if (!b) return;
+      period = b.getAttribute("data-period");
+      [...el("lbSeg").children].forEach(c => c.classList.toggle("on", c === b));
+      haptic();
+      load();
+    });
+    load();
+  }
+
+
+  async function toggleNotif() {
+    const sw = el("notifSw");
+    if (!sw) return;
+    const next = !sw.classList.contains("on");
+    sw.classList.toggle("on", next);
+    haptic();
+    try {
+      await api("/api/notif", { body: { enabled: next } });
+      if (S.me) S.me.notifEnabled = next;
+    } catch (e) {
+      sw.classList.toggle("on", !next);
+      toast(errText(e), "err");
+    }
+  }
+
+  function openLoyalty() {
+    const l = S.me && S.me.loyalty;
+    const tiers = (S.config && S.config.loyalty && S.config.loyalty.tiers) || [];
+    if (!tiers.length) return toast(t("err.server_error"), "err");
+    const spent = (S.me && S.me.spent) || 0;
+
+    openSheet(t("profile.loyalty"), `
+      <div class="ocard" style="margin:0">
+        <div class="tiny mut">${t("profile.spent")}</div>
+        <div class="bal-v" style="font-size:24px">${money(spent)}<span class="cur">${t("common.som")}</span></div>
+      </div>
+      <div class="rows" style="padding:0;margin-top:11px">
+        ${tiers.slice().sort((a, b) => a.minSpent - b.minSpent).map(x => {
+          const reached = spent >= x.minSpent;
+          const now = l && l.current && l.current.name === x.name;
+          return `<div class="row" ${now ? 'style="border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)"' : ""}>
+            <span class="row-ic" style="color:${reached ? "var(--gold)" : "var(--mut)"}">${ICO("palak", 19)}</span>
+            <span class="row-b">
+              <span class="row-t">${esc(x.name)}${now ? " · " + t("lb.you") : ""}</span>
+              <span class="row-s">${t("profile.fromSpent")} ${som(x.minSpent)}</span>
+            </span>
+            <span class="row-e"><span class="row-p">${x.percent}%</span></span>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="hint" style="margin-top:12px">${ICO("info", 13)}<span>${t("profile.loyaltyHint")}</span></div>
+      <button class="btn btn--line btn-w" style="margin-top:12px" data-close>${t("common.close")}</button>`);
   }
 
   function openPromos() {
@@ -1045,6 +1167,22 @@
     const lang = e.target.closest("[data-lang]");
     if (lang) return setLang(lang.getAttribute("data-lang"));
 
+    const th = e.target.closest("[data-settheme]");
+    if (th) {
+      const mode = th.getAttribute("data-settheme");
+      if (mode !== themeNow()) { applyTheme(mode); render(); }
+      return;
+    }
+
+    const cp = e.target.closest("[data-copy]");
+    if (cp && !e.target.closest(".sh-body")) {
+      const v = cp.getAttribute("data-copy");
+      if (v) copy(v);
+      return;
+    }
+
+    if (e.target.closest("#notifSw")) return toggleNotif();
+
     const f = e.target.closest("[data-f]");
     if (f) { S.group = f.getAttribute("data-f"); haptic(); return render(); }
 
@@ -1076,6 +1214,7 @@
     if (!act) return;
     const a = act.getAttribute("data-act");
     if (a === "topupOpen") return openTopup();
+    if (a === "loyalty") return openLoyalty();
     if (a === "referral") return openReferral();
     if (a === "leaders") return openLeaders();
     if (a === "promos") return openPromos();

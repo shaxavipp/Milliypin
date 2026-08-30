@@ -6,6 +6,16 @@
   const DICT = {
     uz: {
       "brand.sub": "Donat xizmati",
+      "lb.today": "Bugun", "lb.week": "Hafta", "lb.month": "Oy", "lb.all": "Hammasi",
+      "lb.orders": "buyurtma", "lb.you": "Siz",
+      "profile.notif": "Bildirishnomalar",
+      "profile.notifSub": "Buyurtma holati va bonuslar haqida xabar",
+      "profile.loyalty": "Sodiqlik darajasi",
+      "profile.loyaltyHint": "Xarid summangiz oshgan sari daraja ko'tariladi va har buyurtmadan keshbek balansga qaytadi.",
+      "profile.fromSpent": "dan boshlab",
+      "profile.adminSub": "Buyurtma, to'lov va katalog boshqaruvi",
+      "profile.langSub": "",
+      "profile.idCopied": "ID nusxa olindi",
       "home.reviewsCount": "baho",
       "profile.socials": "Ijtimoiy tarmoqlar",
       "profile.faq": "Tez-tez beriladigan savollar",
@@ -187,6 +197,16 @@
 
     ru: {
       "brand.sub": "Донат-сервис",
+      "lb.today": "Сегодня", "lb.week": "Неделя", "lb.month": "Месяц", "lb.all": "Всё время",
+      "lb.orders": "заказ.", "lb.you": "Вы",
+      "profile.notif": "Уведомления",
+      "profile.notifSub": "Сообщать о статусе заказа и бонусах",
+      "profile.loyalty": "Уровень лояльности",
+      "profile.loyaltyHint": "Чем больше сумма покупок, тем выше уровень и больше кешбэк с каждого заказа.",
+      "profile.fromSpent": "от",
+      "profile.adminSub": "Заказы, платежи и каталог",
+      "profile.langSub": "",
+      "profile.idCopied": "ID скопирован",
       "home.reviewsCount": "оценок",
       "profile.socials": "Мы в соцсетях",
       "profile.faq": "Частые вопросы",

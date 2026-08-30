@@ -328,13 +328,58 @@ async function main() {
     assert.ok(!r.data.some(x => x.code === "YOPIQ"), "yopiq kod ko'rinib qoldi");
     assert.ok(!("usedBy" in (r.data[0] || {})), "ichki maydon sizib chiqdi");
   });
-  await it("/api/leaderboard xaridorlarni tartiblab beradi va ID chiqarmaydi", async () => {
+  await it("/api/leaderboard tartiblaydi va ID chiqarmaydi", async () => {
     const r = await call("/api/leaderboard");
     assert.strictEqual(r.status, 200);
-    assert.ok(r.data.length >= 1);
-    assert.strictEqual(r.data[0].rank, 1);
-    assert.ok(!("id" in r.data[0]), "foydalanuvchi ID si ochiq chiqdi");
-    for (let i = 1; i < r.data.length; i++) assert.ok(r.data[i - 1].spent >= r.data[i].spent);
+    const list = r.data.leaderboard;
+    assert.ok(list.length >= 1, "reyting bo'sh");
+    assert.strictEqual(list[0].rank, 1);
+    assert.ok(!("uid" in list[0]) && !("id" in list[0]), "foydalanuvchi ID si ochiq chiqdi");
+    assert.ok(list[0].count >= 1, "buyurtmalar soni yo'q");
+    for (let i = 1; i < list.length; i++) assert.ok(list[i - 1].total >= list[i].total);
+  });
+  await it("reytingda davr filtri ishlaydi", async () => {
+    const all = await call("/api/leaderboard?period=all");
+    const today = await call("/api/leaderboard?period=today");
+    assert.strictEqual(today.data.period, "today");
+    assert.ok(all.data.leaderboard.length >= today.data.leaderboard.length);
+    const bad = await call("/api/leaderboard?period=hack");
+    assert.strictEqual(bad.data.period, "all", "noma'lum davr 'all' ga tushishi kerak");
+  });
+  await it("imzo bilan reytingda o'z o'rni qaytadi", async () => {
+    const anon = await call("/api/leaderboard");
+    assert.strictEqual(anon.data.me, null);
+    const mine = await call("/api/leaderboard", { as: USER });
+    assert.ok(mine.data.me, "me bo'limi yo'q");
+    assert.ok(mine.data.me.rank >= 1);
+    assert.ok(mine.data.me.total > 0);
+  });
+  await it("admin statistikasi davr bo'yicha hisoblanadi", async () => {
+    const r = await call("/api/admin/overview?period=month", { as: ADMIN });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.period, "month");
+    assert.ok(r.data.users >= 1);
+    assert.ok(r.data.revenue >= 0 && r.data.balances >= 0);
+  });
+  await it("moliya ekrani kutayotgan to'lov va buyurtmalarni beradi", async () => {
+    const r = await call("/api/admin/money", { as: ADMIN });
+    assert.strictEqual(r.status, 200);
+    assert.ok(Array.isArray(r.data.payments) && Array.isArray(r.data.orders));
+    assert.strictEqual((await call("/api/admin/money", { as: USER })).status, 403);
+  });
+  await it("mijoz tarixi to'liq qaytadi", async () => {
+    const r = await call("/api/admin/history?id=" + USER_ID, { as: ADMIN });
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.orders.length >= 1);
+    assert.ok(r.data.payments.length >= 1);
+    assert.strictEqual((await call("/api/admin/history?id=999999", { as: ADMIN })).status, 404);
+  });
+  await it("bildirishnomani o'chirish va yoqish saqlanadi", async () => {
+    let r = await call("/api/notif", { as: USER, body: { enabled: false } });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual((await call("/api/me", { as: USER })).data.notifEnabled, false);
+    await call("/api/notif", { as: USER, body: { enabled: true } });
+    assert.strictEqual((await call("/api/me", { as: USER })).data.notifEnabled, true);
   });
   await it("texnik ishdagi mahsulotni sotib bo'lmaydi", async () => {
     const cur = (await call("/api/admin/catalog", { as: ADMIN })).data;

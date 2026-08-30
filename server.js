@@ -213,6 +213,22 @@ function balanceAdd(uidStr, delta, reason) {
   if (reason) console.log("[balans]", uidStr, delta > 0 ? "+" + delta : delta, reason);
   return u;
 }
+// Davr boshlanish vaqti: bugun / hafta / oy / hammasi
+function periodStart(period) {
+  const d = new Date();
+  if (period === "today") { d.setHours(0, 0, 0, 0); return d.getTime(); }
+  if (period === "week") { d.setHours(0, 0, 0, 0); return d.getTime() - 6 * 864e5; }
+  if (period === "month") { d.setHours(0, 0, 0, 0); d.setDate(1); return d.getTime(); }
+  return 0;
+}
+
+// Ismni qisqartirish: "Doniyor Rasulov" → "Doniyor R." — reytingda to'liq ism ochilmaydi
+function shortName(full, fallback) {
+  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return fallback;
+  return parts.length > 1 ? parts[0] + " " + parts[1][0] + "." : parts[0];
+}
+
 function loyaltyTier(spent) {
   const l = cfg("loyalty");
   if (!l.enabled) return null;
@@ -245,6 +261,10 @@ const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g,
 
 function tgSend(chatId, text, extra) {
   if (!chatId) return Promise.resolve({ ok: false });
+  // Mijoz bildirishnomani o'chirgan bo'lsa, unga shaxsiy xabar yuborilmaydi
+  // (kanal xabarlari va admin xabarlari bundan mustasno — ular manfiy/boshqa chat_id).
+  const acc = /^\d+$/.test(String(chatId)) ? store.userGet(db, String(chatId)) : null;
+  if (acc && acc.notifEnabled === false) return Promise.resolve({ ok: false, description: "muted" });
   return tgApi("sendMessage", Object.assign({
     chat_id: String(chatId), text, parse_mode: "HTML", disable_web_page_preview: true
   }, extra || {}));
@@ -441,6 +461,7 @@ function myView(u) {
     balance: num(acc.balance),
     spent: num(acc.spent),
     refEarned: num(acc.refEarned),
+    notifEnabled: acc.notifEnabled !== false,
     isAdmin: isAdmin(u),
     loyalty: l,
     orders: store.ordersByUser(db, acc.id, 60).map(o => Object.assign({}, o, {
@@ -535,19 +556,50 @@ route("GET", "/api/promos", (req, res) => {
   send(res, 200, list);
 });
 
-// Top donaterlar — ismlar qisqartirilgan holda beriladi, ID chiqmaydi.
+// Top donaterlar. Davr bo'yicha filtr, ismlar qisqartirilgan, ID chiqmaydi.
+// Imzo yuborilgan bo'lsa, javobda chaqiruvchining o'z o'rni ham qaytadi.
 route("GET", "/api/leaderboard", (req, res) => {
-  const list = store.usersAll(db)
-    .filter(u => num(u.spent) > 0 && !u.blocked)
-    .sort((a, b) => num(b.spent) - num(a.spent))
-    .slice(0, 100)
-    .map((u, i) => ({
-      rank: i + 1,
-      name: str(u.firstName, 20) || ("Mijoz " + String(u.id).slice(-4)),
-      username: u.username ? String(u.username).slice(0, 3) + "***" : "",
-      spent: num(u.spent)
-    }));
-  send(res, 200, list);
+  const q = new URLSearchParams(url.parse(req.url).query || "");
+  const period = ["today", "week", "month", "all"].includes(q.get("period")) ? q.get("period") : "all";
+  const cutoff = periodStart(period);
+
+  const totals = {}, counts = {};
+  store.ordersByStatus(db, "done", 20000).forEach(o => {
+    if (o.ts < cutoff) return;
+    if (ADMIN_IDS.indexOf(Number(o.uid)) !== -1) return; // admin o'z do'konida qatnashmaydi
+    totals[o.uid] = (totals[o.uid] || 0) + num(o.total);
+    counts[o.uid] = (counts[o.uid] || 0) + 1;
+  });
+
+  const rows = Object.keys(totals)
+    .map(uid => {
+      const acc = store.userGet(db, uid) || {};
+      return {
+        uid,
+        name: shortName(acc.firstName, "Mijoz " + String(uid).slice(-4)),
+        total: totals[uid], count: counts[uid] || 0
+      };
+    })
+    .filter(r => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((r, i) => Object.assign({ rank: i + 1 }, r));
+
+  const viewer = auth(req);
+  let me = null;
+  if (viewer) {
+    const mine = rows.find(r => r.uid === String(viewer.id));
+    me = mine
+      ? { rank: mine.rank, total: mine.total, count: mine.count, of: rows.length }
+      : { rank: 0, total: num(totals[String(viewer.id)]), count: 0, of: rows.length };
+  }
+
+  send(res, 200, {
+    period,
+    me,
+    leaderboard: rows.slice(0, 50).map(r => ({
+      rank: r.rank, name: r.name, total: r.total, count: r.count
+    }))
+  });
 });
 
 route("GET", "/api/stats", (req, res) => {
@@ -580,6 +632,17 @@ route("GET", "/api/referral", (req, res) => {
     earned: num(acc.refEarned),
     invited: invited.length,
     invitedActive: invited.filter(x => num(x.spent) > 0).length
+  });
+});
+
+// Bot xabarlarini yoqish/o'chirish (buyurtma holati, keshbek, referal xabarlari)
+route("POST", "/api/notif", (req, res) => {
+  const u = requireUser(req, res); if (!u) return;
+  readBody(req, res, b => {
+    const acc = account(u);
+    acc.notifEnabled = !!b.enabled;
+    store.userPut(db, acc);
+    send(res, 200, { ok: true, enabled: acc.notifEnabled });
   });
 });
 
@@ -715,23 +778,55 @@ route("POST", "/api/review", (req, res) => {
 
 route("GET", "/api/admin/overview", (req, res) => {
   if (!requireAdmin(req, res)) return;
-  const dayAgo = now() - 24 * 3600 * 1000;
-  const weekAgo = now() - 7 * 24 * 3600 * 1000;
-  const recent = store.ordersSince(db, weekAgo);
-  const doneAll = store.ordersByStatus(db, "done", 5000);
-  const sum = list => list.reduce((s, o) => s + num(o.total), 0);
+  const q = new URLSearchParams(url.parse(req.url).query || "");
+  const period = ["today", "week", "month", "all"].includes(q.get("period")) ? q.get("period") : "today";
+  const cutoff = periodStart(period);
+
+  const orders = store.ordersByStatus(db, null, 20000);
+  const inRange = orders.filter(o => o.ts >= cutoff);
+  const doneIn = inRange.filter(o => o.status === "done");
+  const users = store.usersAll(db);
+  const payIn = store.paymentsByStatus(db, "confirmed", 20000).filter(p => p.ts >= cutoff);
+
   send(res, 200, {
-    users: store.usersCount(db),
-    pendingOrders: store.ordersByStatus(db, "new", 500).length,
-    processingOrders: store.ordersByStatus(db, "processing", 500).length,
+    period,
+    users: users.length,
+    usersNew: users.filter(u => num(u.createdAt) >= cutoff).length,
+    orders: doneIn.length,
+    revenue: doneIn.reduce((a, o) => a + num(o.total), 0),
+    topups: payIn.reduce((a, p) => a + num(p.base || p.amount), 0),
+    balances: users.reduce((a, u) => a + num(u.balance), 0),
+    pendingOrders: orders.filter(o => o.status === "new").length,
+    processingOrders: orders.filter(o => o.status === "processing").length,
     pendingPayments: store.paymentsByStatus(db, "pending", 500).length,
-    revenueDay: sum(recent.filter(o => o.status === "done" && o.ts >= dayAgo)),
-    revenueWeek: sum(recent.filter(o => o.status === "done")),
-    revenueAll: sum(doneAll),
-    ordersAll: doneAll.length,
-    top: Object.entries(doneAll.reduce((m, o) => {
+    top: Object.entries(doneIn.reduce((m, o) => {
       m[o.itemTitle] = (m[o.itemTitle] || 0) + 1; return m;
     }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([title, n]) => ({ title, n }))
+  });
+});
+
+// Moliya ekrani: kutayotgan to'lovlar va ochiq buyurtmalar bitta so'rovda
+route("GET", "/api/admin/money", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  expirePending();
+  send(res, 200, {
+    payments: store.paymentsByStatus(db, "pending", 100),
+    orders: store.ordersByStatus(db, "new", 60).concat(store.ordersByStatus(db, "processing", 60))
+      .sort((a, b) => b.ts - a.ts).slice(0, 100)
+  });
+});
+
+// Bitta mijozning to'liq tarixi (buyurtma + to'lov)
+route("GET", "/api/admin/history", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const q = new URLSearchParams(url.parse(req.url).query || "");
+  const uid = str(q.get("id"), 30);
+  const acc = store.userGet(db, uid);
+  if (!acc) return send(res, 404, { error: "not_found" });
+  send(res, 200, {
+    user: acc,
+    orders: store.ordersByUser(db, uid, 100),
+    payments: store.paymentsByUser(db, uid, 100)
   });
 });
 
@@ -766,7 +861,21 @@ route("GET", "/api/admin/payments", (req, res) => {
   if (!requireAdmin(req, res)) return;
   expirePending();
   const q = new URLSearchParams(url.parse(req.url).query || "");
-  send(res, 200, store.paymentsByStatus(db, str(q.get("status"), 20) || "pending", 200));
+  const st = str(q.get("status"), 20) || "pending";
+  const needle = str(q.get("q"), 40).toLowerCase().replace(/^@/, "");
+
+  let list = st === "all"
+    ? ["pending", "confirmed", "rejected", "expired"]
+        .flatMap(x => store.paymentsByStatus(db, x, 200))
+        .sort((a, b) => b.ts - a.ts)
+    : store.paymentsByStatus(db, st, 200);
+
+  if (needle) list = list.filter(p =>
+    String(p.uid).includes(needle) ||
+    String(p.username || "").toLowerCase().includes(needle) ||
+    String(p.amount).includes(needle));
+
+  send(res, 200, list.slice(0, 200));
 });
 
 route("POST", "/api/admin/payment", (req, res) => {

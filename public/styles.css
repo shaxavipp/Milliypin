@@ -956,6 +956,7 @@ select.input { background-image: none; }
 .lc-warn { background: var(--warnsoft); color: var(--warn); border-color: var(--warn); }
 .lc-err  { background: var(--errsoft);  color: var(--err);  border-color: var(--err); }
 .lc-gold { background: var(--goldsoft); color: var(--gold); border-color: var(--gold); }
+.lc-clay { background: var(--claysoft); color: var(--clay); border-color: var(--clay); }
 .linkrow-t { display: block; font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
 .linkrow-s { display: block; font-size: 11px; color: var(--mut); margin-top: 2px; }
 
@@ -997,3 +998,88 @@ select.input { background-image: none; }
 .pcover-fallback { position: absolute; inset: 0; display: grid; place-items: center;
   color: var(--gold); opacity: .2; }
 .pcover-fallback svg { width: 92px; height: 92px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   25. Reyting: podium va ro'yxat
+   Uchlik podium — 2-chi chapda, 1-chi markazda balandroq, 3-chi o'ngda.
+   Poydevor balandligi o'rin bilan o'sadi, ranglar zar / kumush / sopol.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.lb-period { display: flex; gap: 4px; padding: 3px; margin-bottom: 14px;
+  background: var(--card2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.lb-period button { flex: 1; padding: 7px 4px; border-radius: var(--r-xs);
+  font-size: 11.5px; font-weight: 700; color: var(--mut); }
+.lb-period button.on { background: var(--acc); color: #04222A; }
+
+/* Grid + align:end — poydevorlar balandligi har xil bo'lsa ham pastki chiziq bir xil */
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  align-items: end; margin-bottom: 14px; }
+.pod { min-width: 0; height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end; text-align: center; }
+.pod-ring { position: relative; }
+.pod-av { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 18px; font-weight: 800; background: var(--card2);
+  border: 2px solid var(--line2); color: var(--mut2); }
+.pod-1 .pod-av { width: 66px; height: 66px; font-size: 23px; border-color: var(--gold); color: var(--gold); }
+.pod-2 .pod-av { border-color: #9FB0C4; color: #9FB0C4; }
+.pod-3 .pod-av { border-color: var(--clay); color: var(--clay); }
+.pod-medal { position: absolute; bottom: -4px; right: -4px;
+  width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center;
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 700;
+  border: 2px solid var(--bg); background: var(--card2); color: var(--mut2); }
+.pod-1 .pod-medal { background: var(--gold); color: #1B1305; }
+.pod-2 .pod-medal { background: #9FB0C4; color: #16202E; }
+.pod-3 .pod-medal { background: var(--clay); color: #22100A; }
+.pod-n { font-size: 11.5px; font-weight: 700; margin-top: 9px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-v { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 700;
+  color: var(--acc); margin-top: 2px; }
+.pod-c { font-size: 10px; color: var(--mut); margin-top: 1px; }
+.pod-bar { width: 100%; margin-top: 9px; border-radius: var(--r-sm) var(--r-sm) 0 0;
+  border: 1px solid var(--line2); border-bottom: none;
+  display: grid; place-items: start center; padding-top: 7px;
+  font-family: "IBM Plex Mono", monospace; font-weight: 700; font-size: 15px; }
+.pod-1 .pod-bar { height: 52px; background: var(--goldsoft); border-color: var(--gold); color: var(--gold); }
+.pod-2 .pod-bar { height: 38px; background: var(--card2); color: #9FB0C4; }
+.pod-3 .pod-bar { height: 26px; background: var(--claysoft); border-color: var(--clay); color: var(--clay); }
+
+.lb-me { margin-bottom: 12px; border-color: var(--acc) !important; background: var(--accsoft) !important; }
+.lb-c { font-size: 10.5px; color: var(--mut); font-weight: 600; margin-left: 6px; }
+
+/* ── Profil: rangli ikonkali qatorlar ── */
+.svc { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; padding: 12px; }
+.svc + .svc { border-top: 1px solid var(--line); }
+.svc:active { background: var(--card2); }
+.svc-ic { width: 34px; height: 34px; flex: 0 0 auto; border-radius: var(--r-sm);
+  display: grid; place-items: center; }
+.svc-ic .ic { width: 17px; height: 17px; }
+.svc-b { flex: 1; min-width: 0; }
+.svc-t { display: block; font-size: 13.5px; font-weight: 700; letter-spacing: -.012em; }
+.svc-s { display: block; font-size: 11px; color: var(--mut); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svc-r { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; color: var(--mut); }
+
+/* Kalit-tugma (switch) */
+.sw-sm { width: 40px; height: 23px; flex: 0 0 auto; border-radius: 12px; position: relative;
+  background: var(--card2); border: 1px solid var(--line2); transition: background .18s; }
+.sw-sm i { position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--mut); transition: left .18s var(--spring), background .18s; }
+.sw-sm.on { background: var(--acc); border-color: var(--acc); }
+.sw-sm.on i { left: 19px; background: #04222A; }
+
+/* ID nusxa olish tugmasi */
+.idcopy { display: inline-flex; align-items: center; gap: 4px; color: var(--mut);
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+.idcopy .ic { width: 12px; height: 12px; }
+
+/* ── Admin: moliya qatorlari ── */
+.mrow { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.mrow + .mrow { border-top: 1px solid var(--line); }
+.mrow-b { flex: 1; min-width: 0; }
+.mrow-t { display: block; font-size: 13px; font-weight: 700; }
+.mrow-s { display: block; font-size: 10.5px; color: var(--mut); margin-top: 2px; }
+.mrow-a { display: flex; gap: 5px; flex: 0 0 auto; }
+.mrow-a button { width: 32px; height: 32px; border-radius: var(--r-sm);
+  display: grid; place-items: center; border: 1px solid var(--line); background: var(--card2); }
+.mrow-a .ok { color: var(--ok); border-color: var(--ok); background: var(--oksoft); }
+.mrow-a .no { color: var(--err); border-color: var(--err); background: var(--errsoft); }

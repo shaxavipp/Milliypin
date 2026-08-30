@@ -19,6 +19,7 @@
 
   const TABS = [
     { id: "dash",     ic: "chart",     label: "Umumiy" },
+    { id: "money",    ic: "wallet",    label: "Moliya" },
     { id: "orders",   ic: "scroll",    label: "Buyurtmalar" },
     { id: "payments", ic: "card",      label: "To'lovlar" },
     { id: "users",    ic: "users",     label: "Mijozlar" },
@@ -28,7 +29,7 @@
     { id: "cast",     ic: "megaphone", label: "Tarqatma" }
   ];
 
-  const A = { tab: "dash", data: {}, catalog: [], settings: null, orderFilter: "new" };
+  const A = { tab: "dash", data: {}, catalog: [], settings: null, orderFilter: "new", period: "today", payFilter: "pending", payQuery: "" };
 
   function openAdmin() {
     window.mpSheet("Admin panel", `
@@ -63,6 +64,7 @@
     loading();
     try {
       if (A.tab === "dash") return await tabDash();
+      if (A.tab === "money") return await tabMoney();
       if (A.tab === "orders") return await tabOrders();
       if (A.tab === "payments") return await tabPayments();
       if (A.tab === "users") return await tabUsers();
@@ -76,35 +78,66 @@
   }
 
   /* ─────────── Umumiy ─────────── */
+  const PERIODS = [
+    { id: "today", label: "Bugun" }, { id: "week", label: "Hafta" },
+    { id: "month", label: "Oy" }, { id: "all", label: "Hammasi" }
+  ];
+
   async function tabDash() {
-    const d = await api("/api/admin/overview");
+    const d = await api("/api/admin/overview?period=" + A.period);
     body(`
-      <div class="kpi">
-        <div class="kpi-b"><div class="kpi-v">${money(d.revenueDay)}</div><div class="kpi-k">Bugungi tushum</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.revenueWeek)}</div><div class="kpi-k">7 kunlik tushum</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.revenueAll)}</div><div class="kpi-k">Umumiy tushum</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.ordersAll)}</div><div class="kpi-k">Bajarilgan buyurtma</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.users)}</div><div class="kpi-k">Mijozlar</div></div>
-        <div class="kpi-b"><div class="kpi-v" style="color:var(--clay)">${d.pendingOrders + d.processingOrders}</div><div class="kpi-k">Ochiq buyurtma</div></div>
+      <div class="lb-period" id="pSeg">
+        ${PERIODS.map(p => `<button data-p="${p.id}" class="${p.id === A.period ? "on" : ""}">${p.label}</button>`).join("")}
       </div>
 
-      ${d.pendingPayments ? `<div class="ocard" style="margin:11px 0 0;border-left:2px solid var(--clay)">
-        <b>${d.pendingPayments}</b> ta to'lov tasdiqlashni kutmoqda</div>` : ""}
+      <div class="kpi">
+        <div class="kpi-b"><div class="kpi-v">${money(d.revenue)}</div><div class="kpi-k">Tushum</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.topups)}</div><div class="kpi-k">To'ldirildi</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.orders)}</div><div class="kpi-k">Bajarilgan buyurtma</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.usersNew)}</div><div class="kpi-k">Yangi mijoz</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.users)}</div><div class="kpi-k">Jami mijoz</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.balances)}</div><div class="kpi-k">Balanslar yig'indisi</div></div>
+      </div>
+
+      ${(d.pendingPayments || d.pendingOrders || d.processingOrders) ? `
+      <button class="wide" style="margin:11px 0 0;width:100%" data-goto="money">
+        <span class="wide-ic" style="color:var(--clay);background:var(--claysoft);border-color:var(--clay)">${ICO("alert", 19)}</span>
+        <span class="wide-b">
+          <span class="wide-t">Kutayotgan ishlar</span>
+          <span class="wide-s">${d.pendingPayments} to'lov · ${d.pendingOrders + d.processingOrders} buyurtma</span>
+        </span>
+        ${ICO("chevron", 15)}
+      </button>` : ""}
 
       ${d.top && d.top.length ? `
       <div class="sect"><h3>Eng ko'p sotilgan</h3></div>
-      <div class="rows" style="margin-top:10px">
+      <div class="rows" style="padding:0">
         ${d.top.map((x, i) => `<div class="row">
-          <div class="row-ic">${i + 1}</div>
-          <div class="row-b"><div class="row-t">${esc(x.title)}</div></div>
-          <div class="row-e"><div class="row-p">${x.n}</div></div>
+          <span class="row-ic">${i + 1}</span>
+          <span class="row-b"><span class="row-t">${esc(x.title)}</span></span>
+          <span class="row-e"><span class="row-p">${x.n}</span></span>
         </div>`).join("")}
       </div>` : ""}
 
       <div class="acts">
-        <button class="btn btn--line btn-sm" id="admExport">${ICO("download",14)}CSV Telegramga</button>
-        <button class="btn btn--line btn-sm" id="admReload">${ICO("refresh",14)}Yangilash</button>
+        <button class="btn btn--line btn-sm" id="admExport">${ICO("download", 14)}CSV Telegramga</button>
+        <button class="btn btn--line btn-sm" id="admReload">${ICO("refresh", 14)}Yangilash</button>
       </div>`);
+
+    el("pSeg").addEventListener("click", e => {
+      const b = e.target.closest("[data-p]");
+      if (!b) return;
+      A.period = b.getAttribute("data-p");
+      renderTab();
+    });
+    el("admBody").addEventListener("click", e => {
+      const g = e.target.closest("[data-goto]");
+      if (!g) return;
+      A.tab = g.getAttribute("data-goto");
+      [...el("admTabs").children].forEach(c =>
+        c.classList.toggle("on", c.getAttribute("data-adm") === A.tab));
+      renderTab();
+    });
     el("admReload").onclick = renderTab;
     el("admExport").onclick = async () => {
       const b = el("admExport");
@@ -115,6 +148,161 @@
       } catch (e) { toast(errText(e), "err"); }
       b.disabled = false;
     };
+  }
+
+  /* ─────────── Moliya: kutayotgan to'lov va buyurtmalar + mijoz qidiruvi ─────────── */
+
+  async function tabMoney() {
+    const d = await api("/api/admin/money");
+
+    const payRow = p => `<div class="mrow">
+      <span class="mrow-b">
+        <span class="mrow-t price">${som(p.amount)}${p.claimedAt ? " · to'ladim" : ""}</span>
+        <span class="mrow-s">${esc(p.cardType || "")} · ${p.username ? "@" + esc(p.username) : esc(p.uid)} · ${dt(p.ts)}</span>
+      </span>
+      <span class="mrow-a">
+        <button class="ok" data-pay="confirm" data-id="${esc(p.id)}">${ICO("check", 15)}</button>
+        <button class="no" data-pay="reject" data-id="${esc(p.id)}">${ICO("x", 15)}</button>
+      </span>
+    </div>`;
+
+    const ordRow = o => `<div class="mrow">
+      <span class="mrow-b">
+        <span class="mrow-t">#${o.seq} ${esc(o.itemTitle)} · <span class="price">${som(o.total)}</span></span>
+        <span class="mrow-s">${esc(o.tierLabel)} → ${esc(o.target)}</span>
+      </span>
+      <span class="mrow-a">
+        <button class="ok" data-ord="done" data-id="${esc(o.id)}">${ICO("check", 15)}</button>
+        <button class="no" data-ord="cancel" data-id="${esc(o.id)}">${ICO("x", 15)}</button>
+      </span>
+    </div>`;
+
+    body(`
+      <div class="sect"><h3>Kutayotgan to'lovlar</h3></div>
+      <div class="ocard" style="margin:0">
+        ${d.payments.length ? d.payments.map(payRow).join("") : `<div class="tiny mut">Bo'sh</div>`}
+      </div>
+
+      <div class="sect"><h3>Ochiq buyurtmalar</h3></div>
+      <div class="ocard" style="margin:0">
+        ${d.orders.length ? d.orders.map(ordRow).join("") : `<div class="tiny mut">Bo'sh</div>`}
+      </div>
+
+      <div class="sect"><h3>Mijoz qidirish</h3></div>
+      <div class="inline" style="padding:0 0 2px">
+        <input class="input" id="mq" placeholder="ID yoki @username">
+        <button class="btn btn--acc" id="mqBtn">${ICO("search", 15)}</button>
+      </div>
+      <div id="mqRes"></div>`);
+
+    el("mqBtn").onclick = () => findUser(el("mq").value.trim());
+    el("mq").addEventListener("keydown", e => { if (e.key === "Enter") findUser(el("mq").value.trim()); });
+
+    el("admBody").addEventListener("click", async e => {
+      const p = e.target.closest("[data-pay]");
+      const o = e.target.closest("[data-ord]");
+      if (!p && !o) return;
+      const btn = p || o;
+      btn.disabled = true;
+      try {
+        await api(p ? "/api/admin/payment" : "/api/admin/order", {
+          body: { id: btn.getAttribute("data-id"), action: btn.getAttribute(p ? "data-pay" : "data-ord") }
+        });
+        toast("Bajarildi", "ok");
+        renderTab();
+      } catch (err) { toast(errText(err), "err"); btn.disabled = false; }
+    });
+  }
+
+  async function findUser(q) {
+    const box = el("mqRes");
+    if (!q) { box.innerHTML = ""; return; }
+    let list = [];
+    try { list = await api("/api/admin/users?q=" + encodeURIComponent(q)); }
+    catch (e) { box.innerHTML = `<div class="errline">${esc(errText(e))}</div>`; return; }
+
+    box.innerHTML = list.length ? list.slice(0, 10).map(u => `
+      <div class="ocard" style="margin:9px 0 0">
+        <div class="oc-top">
+          <span class="oc-n"><span data-copy="${esc(u.id)}">${u.username ? "@" + esc(u.username) : esc(u.firstName || u.id)}</span></span>
+          <span class="tag tag--${u.blocked ? "canceled" : "done"}">${u.blocked ? "Bloklangan" : "Aktiv"}</span>
+        </div>
+        <div class="oc-b tiny">ID ${esc(u.id)} · Balans <b class="price">${som(u.balance)}</b> · Sarflagan ${som(u.spent || 0)}</div>
+        <div class="inline" style="margin-top:9px">
+          <input class="input" inputmode="numeric" placeholder="Summa" data-amt="${esc(u.id)}">
+          <button class="btn btn--acc btn-sm" data-badd="${esc(u.id)}">${ICO("plus", 14)}</button>
+          <button class="btn btn--danger btn-sm" data-bsub="${esc(u.id)}">${ICO("minus", 14)}</button>
+        </div>
+        <div class="acts">
+          <button class="btn btn--line btn-sm" data-hist="${esc(u.id)}">${ICO("clock", 14)}Tarix</button>
+          <button class="btn btn--line btn-sm" data-block="${esc(u.id)}" data-on="${u.blocked ? "0" : "1"}">
+            ${u.blocked ? ICO("eye", 14) + "Ochish" : ICO("lock", 14) + "Bloklash"}</button>
+        </div>
+      </div>`).join("") : `<div class="tiny mut" style="margin-top:9px">Topilmadi</div>`;
+
+    box.addEventListener("click", async e => {
+      const add = e.target.closest("[data-badd]"), sub = e.target.closest("[data-bsub]");
+      if (add || sub) {
+        const id = (add || sub).getAttribute(add ? "data-badd" : "data-bsub");
+        const inp = box.querySelector('[data-amt="' + id + '"]');
+        const v = Math.round(Number(inp && inp.value) || 0);
+        if (!v) return toast("Summani kiriting", "err");
+        try {
+          await api("/api/admin/user", { body: { id, action: "balance", delta: add ? v : -v } });
+          toast("Bajarildi", "ok");
+          findUser(q);
+        } catch (err) { toast(errText(err), "err"); }
+        return;
+      }
+      const blk = e.target.closest("[data-block]");
+      if (blk) {
+        try {
+          await api("/api/admin/user", {
+            body: { id: blk.getAttribute("data-block"), action: "block", blocked: blk.getAttribute("data-on") === "1" }
+          });
+          findUser(q);
+        } catch (err) { toast(errText(err), "err"); }
+        return;
+      }
+      const h = e.target.closest("[data-hist]");
+      if (h) openHistory(h.getAttribute("data-hist"));
+    });
+  }
+
+  async function openHistory(uid) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<div class="skel"></div>`;
+    let d;
+    try { d = await api("/api/admin/history?id=" + encodeURIComponent(uid)); }
+    catch (e) { return toast(errText(e), "err"); }
+
+    const rows = [
+      ...d.orders.map(o => ({ ts: o.ts, kind: "order", label: "#" + o.seq + " " + o.itemTitle,
+        sub: o.tierLabel + " → " + o.target, amount: -o.total, status: o.status })),
+      ...d.payments.map(p => ({ ts: p.ts, kind: "pay", label: "To'ldirish",
+        sub: (p.cardType || "") + " · o'tkazma " + som(p.amount), amount: p.base || p.amount, status: p.status }))
+    ].sort((a, b) => b.ts - a.ts).slice(0, 60);
+
+    window.mpSheet((d.user.username ? "@" + d.user.username : "ID " + d.user.id) + " — tarix", `
+      <div class="stats" style="padding:0">
+        <div class="stat"><div class="stat-v">${money(d.user.balance)}</div><div class="stat-k">Balans</div></div>
+        <div class="stat"><div class="stat-v">${money(d.user.spent || 0)}</div><div class="stat-k">Sarflagan</div></div>
+        <div class="stat"><div class="stat-v">${d.orders.length}</div><div class="stat-k">Buyurtma</div></div>
+      </div>
+      <div class="rows" style="padding:0;margin-top:11px">
+        ${rows.length ? rows.map(r => `<div class="row">
+          <span class="row-ic">${ICO(r.kind === "pay" ? "card" : "scroll", 19)}</span>
+          <span class="row-b">
+            <span class="row-t">${esc(r.label)}</span>
+            <span class="row-s">${esc(r.sub)} · ${dt(r.ts)}</span>
+          </span>
+          <span class="row-e">
+            <span class="row-p" style="color:${r.amount > 0 ? "var(--ok)" : "var(--txt)"}">
+              ${r.amount > 0 ? "+" : ""}${money(r.amount)}</span>
+            <span class="tag tag--${esc(r.status)}" style="margin-top:3px;display:inline-block">${t("st." + r.status)}</span>
+          </span>
+        </div>`).join("") : `<div class="tiny mut">Bo'sh</div>`}
+      </div>`);
   }
 
   /* ─────────── Buyurtmalar ─────────── */
@@ -178,33 +366,58 @@
   }
 
   /* ─────────── To'lovlar ─────────── */
+  const PSTATUS = [
+    { id: "pending", label: "Kutilmoqda" }, { id: "confirmed", label: "Tasdiqlangan" },
+    { id: "rejected", label: "Rad etilgan" }, { id: "expired", label: "Muddati o'tgan" },
+    { id: "all", label: "Hammasi" }
+  ];
+
   async function tabPayments() {
-    const list = await api("/api/admin/payments?status=pending");
+    const list = await api("/api/admin/payments?status=" + encodeURIComponent(A.payFilter) +
+      (A.payQuery ? "&q=" + encodeURIComponent(A.payQuery) : ""));
+
     body(`
-      <div class="hint" style="margin-bottom:10px">Bank SMS'idagi summa bilan solishtiring va tasdiqlang. Tasdiqlangach mijoz balansiga <b>asosiy summa</b> tushadi.</div>
+      <div class="pills">
+        ${PSTATUS.map(x => `<button class="pill ${x.id === A.payFilter ? "on" : ""}" data-pst="${x.id}">${x.label}</button>`).join("")}
+      </div>
+      <div class="inline" style="margin-bottom:11px">
+        <input class="input" id="pq" placeholder="ID / @username / summa" value="${esc(A.payQuery)}">
+        <button class="btn btn--acc" id="pqBtn">${ICO("search", 15)}</button>
+      </div>
+      <div class="hint" style="margin-bottom:11px">${ICO("info", 13)}<span>Bank SMS'idagi summa bilan solishtiring. Tasdiqlangach mijoz balansiga <b>asosiy summa</b> tushadi.</span></div>
       ${list.length ? list.map(p => `
         <div class="ocard">
           <div class="oc-top">
             <span class="oc-n" data-copy="${p.amount}">${som(p.amount)}</span>
-            <span class="tag tag--${esc(p.status)}">${p.claimedAt ? "To'ladim" : t("st." + p.status)}</span>
+            <span class="tag tag--${esc(p.status)}">${p.status === "pending" && p.claimedAt ? "To'ladim" : t("st." + p.status)}</span>
           </div>
-          <div class="ocard__body tiny">
-            Hisobga tushadi: <b>${som(p.base || p.amount)}</b> · ${esc(p.cardType)} ${esc(p.cardNumber)}
+          <div class="oc-b tiny">
+            Hisobga tushadi: <b class="price">${som(p.base || p.amount)}</b> · ${esc(p.cardType)} ${esc(p.cardNumber || "")}
           </div>
           <div class="oc-m">
             <span>${ICO("clock", 12)}${dt(p.ts)}</span>
             <span data-copy="${esc(p.uid)}">${ICO("user", 12)}${p.username ? "@" + esc(p.username) : esc(p.uid)}</span>
+            ${p.confirmedBy ? `<span>${ICO("check", 12)}${esc(p.confirmedBy)}</span>` : ""}
           </div>
-          <div class="acts">
-            <button class="btn btn--acc btn-sm" data-pay="confirm" data-id="${esc(p.id)}">${ICO("check",14)}Tasdiqlash</button>
-            <button class="btn btn--danger btn-sm" data-pay="reject" data-id="${esc(p.id)}">${ICO("x",14)}Rad etish</button>
-          </div>
+          ${p.status === "pending" ? `<div class="acts">
+            <button class="btn btn--acc btn-sm" data-pay="confirm" data-id="${esc(p.id)}">${ICO("check", 14)}Tasdiqlash</button>
+            <button class="btn btn--danger btn-sm" data-pay="reject" data-id="${esc(p.id)}">${ICO("x", 14)}Rad etish</button>
+          </div>` : ""}
         </div>`).join("")
-        : `<div class="empty">${ICO("box",34)}<div class="empty-t">Kutayotgan to'lov yo'q</div></div>`}`);
+        : `<div class="empty">${ICO("card", 34)}<div class="empty-t">Bo'sh</div></div>`}`);
+
+    el("pqBtn").onclick = () => { A.payQuery = el("pq").value.trim(); renderTab(); };
+    el("pq").addEventListener("keydown", e => {
+      if (e.key === "Enter") { A.payQuery = el("pq").value.trim(); renderTab(); }
+    });
 
     el("admBody").addEventListener("click", async e => {
+      const f = e.target.closest("[data-pst]");
+      if (f) { A.payFilter = f.getAttribute("data-pst"); return renderTab(); }
+
       const c = e.target.closest("[data-copy]");
       if (c) return window.mpCopy(c.getAttribute("data-copy"));
+
       const b = e.target.closest("[data-pay]");
       if (!b) return;
       b.disabled = true;

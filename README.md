@@ -56,15 +56,23 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   (@username / Player ID / ID+Zone / nik / havola)
 - Buyurtmalar tarixi va bajarilgan buyurtmani baholash
 - Promokodni profilda saqlash — keyingi buyurtmaga avtomatik qo'llanadi
-- Top donaterlar reytingi (ismlar qisqartirilgan, ID ochilmaydi)
+- Top donaterlar reytingi: **Bugun / Hafta / Oy / Hammasi** davri, uchlik podium,
+  buyurtmalar soni va o'z o'rningiz alohida qatorda (ismlar qisqartirilgan, ID ochilmaydi)
+- Sodiqlik darajalari oynasi: barcha bosqichlar, keshbek foizi va joriy o'rin
+- Bildirishnomalarni o'chirish — bot shaxsiy xabar yubormaydi
 - Referal dastur — do'st har xarid qilganda foiz balansga tushadi
 - Sodiqlik darajalari (Chinnigul → Zargar → Amir → Sohibqiron) va avtomatik keshbek
 - Buyurtma holati o'zgarganda botdan xabar keladi
 
 **Admin uchun** (Profil → Admin panel; faqat `ADMIN_IDS` ro'yxatidagilar ko'radi)
-- Umumiy: kunlik / haftalik / umumiy tushum, ochiq buyurtmalar, eng ko'p sotilganlar, CSV hisobot
+- Umumiy: **Bugun / Hafta / Oy / Hammasi** davri bo'yicha tushum, to'ldirishlar,
+  bajarilgan buyurtmalar, yangi va jami mijoz, balanslar yig'indisi; eng ko'p sotilganlar; CSV hisobot
+- Moliya: kutayotgan to'lovlar va ochiq buyurtmalar bitta ekranda bir bosishda tasdiqlanadi;
+  mijozni ID yoki @username bo'yicha topib balansiga qo'shish/yechish, bloklash va
+  **to'liq tarixini** (buyurtma + to'lov, kirim/chiqim rangi bilan) ko'rish
 - Buyurtmalar: holat bo'yicha filtr, "Olindi / Bajarildi / Bekor" (bekor qilinsa pul avtomatik qaytadi)
-- To'lovlar: kutayotgan to'lovni tasdiqlash yoki rad etish
+- To'lovlar: holat bo'yicha filtr (kutilmoqda / tasdiqlangan / rad etilgan / muddati o'tgan / hammasi)
+  va ID, @username yoki summa bo'yicha qidiruv
 - Mijozlar: qidiruv, balansga qo'lda +/−, bloklash
 - Katalog: mahsulot va paketlar, muqova rasmi havolasi, hudud yorlig'i, reyting va
   "texnik ish" holati → **Nashr qilish**
