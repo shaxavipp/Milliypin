@@ -81,6 +81,44 @@ const cbq = (from, data) => ({
   callback_query: { id: "cb" + Date.now(), from, data, message: { message_id: 1, chat: { id: -100123 } } }
 });
 
+/* ---------- soxta provayder sayti ----------
+   Perfect Panel standartini taqlid qiladi: add / status / balance / services. */
+const http = require("http");
+const PROV_PORT = PORT + 700;
+const provState = { orders: {}, next: 1000, lastAdd: null };
+const provServer = http.createServer((req, res) => {
+  let body = "";
+  req.on("data", c => body += c);
+  req.on("end", () => {
+    const q = new URLSearchParams(body);
+    const action = q.get("action");
+    const reply = o => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
+    if (q.get("key") !== "PROV-KEY") return reply({ error: "Incorrect API key" });
+    if (action === "balance") return reply({ balance: "42.50", currency: "USD" });
+    if (action === "services") return reply([
+      { service: "77", name: "PUBG UC 60", category: "Games", rate: "1.20", min: 1, max: 100 },
+      { service: "88", name: "Telegram Premium", category: "Telegram", rate: "5.00", min: 1, max: 10 }
+    ]);
+    if (action === "add") {
+      if (q.get("service") === "999") return reply({ error: "Service not found" });
+      const id = String(provState.next++);
+      provState.orders[id] = { status: "Pending", remains: q.get("quantity") };
+      provState.lastAdd = { service: q.get("service"), link: q.get("link"), quantity: q.get("quantity") };
+      return reply({ order: Number(id) });
+    }
+    if (action === "status") {
+      const out = {};
+      String(q.get("orders") || "").split(",").forEach(id => {
+        out[id] = provState.orders[id] || { error: "Incorrect order ID" };
+      });
+      return reply(out);
+    }
+    reply({ error: "unknown action" });
+  });
+});
+provServer.listen(PROV_PORT, "127.0.0.1");
+const PROV_URL = "http://127.0.0.1:" + PROV_PORT + "/api/v2";
+
 /* ---------- testlar ---------- */
 
 async function main() {
@@ -636,6 +674,114 @@ async function main() {
     await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
   });
 
+  group("Tashqi provayder (avtomatika)");
+  let provId = "";
+  await it("provayder saqlanadi va kalit niqoblanadi", async () => {
+    const r = await call("/api/admin/providers", {
+      as: ADMIN,
+      body: { items: [{ name: "Test panel", kind: "smm", url: PROV_URL, key: "PROV-KEY", active: true }] }
+    });
+    assert.strictEqual(r.status, 200);
+    const list = (await call("/api/admin/providers", { as: ADMIN })).data;
+    assert.strictEqual(list.length, 1);
+    assert.strictEqual(list[0].keyMask, "••••-KEY");
+    assert.ok(!("key" in list[0]), "API kalit javobda ochiq ketdi");
+    provId = list[0].id;
+  });
+  await it("balans va xizmatlar ro'yxati olinadi", async () => {
+    const b = await call("/api/admin/provider-balance?id=" + provId, { as: ADMIN });
+    assert.strictEqual(b.status, 200);
+    assert.strictEqual(b.data.balance, 42.5);
+    const s2 = await call("/api/admin/provider-services?id=" + provId + "&q=pubg", { as: ADMIN });
+    assert.strictEqual(s2.data.count, 2);
+    assert.strictEqual(s2.data.items.length, 1);
+    assert.strictEqual(s2.data.items[0].service, "77");
+  });
+  await it("kalitni qayta yozmasdan tahrirlash mumkin", async () => {
+    const list = (await call("/api/admin/providers", { as: ADMIN })).data;
+    list[0].name = "Panel 2";
+    await call("/api/admin/providers", { as: ADMIN, body: { items: list } });
+    const b = await call("/api/admin/provider-balance?id=" + provId, { as: ADMIN });
+    assert.strictEqual(b.status, 200, "niqob saqlangach kalit yo'qoldi");
+  });
+
+  let autoOrderId = "";
+  await it("avtomatik paket buyurtmasi provayderga yuboriladi", async () => {
+    const cat = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const item = cat.find(x => x.id === "tg-stars");
+    item.tiers[0].auto = { provider: provId, service: "77", qty: 50 };
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: cat } });
+
+    const r = await call("/api/order", {
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+    });
+    assert.strictEqual(r.status, 200);
+    autoOrderId = r.data.order.id;
+
+    // Yuborish javobdan keyin fonda ketadi
+    for (let i = 0; i < 40 && !app.store.orderGet(app.db, autoOrderId).extId; i++)
+      await new Promise(res => setTimeout(res, 50));
+
+    const o = app.store.orderGet(app.db, autoOrderId);
+    assert.ok(o.extId, "extId saqlanmadi");
+    assert.strictEqual(o.status, "processing");
+    assert.strictEqual(provState.lastAdd.service, "77");
+    assert.strictEqual(provState.lastAdd.link, "@doniyor");
+    assert.strictEqual(provState.lastAdd.quantity, "50");
+  });
+  await it("provayder bajargach buyurtma o'zi 'bajarildi' bo'ladi", async () => {
+    const o = app.store.orderGet(app.db, autoOrderId);
+    provState.orders[o.extId] = { status: "Completed", remains: 0, charge: "1.2" };
+    const r = await call("/api/admin/provider-retry", { as: ADMIN, body: { id: autoOrderId, action: "check" } });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(app.store.orderGet(app.db, autoOrderId).status, "done");
+  });
+  await it("provayder bekor qilsa pul qaytadi", async () => {
+    const cat = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const item = cat.find(x => x.id === "tg-stars");
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const r = await call("/api/order", {
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+    });
+    const id = r.data.order.id;
+    for (let i = 0; i < 40 && !app.store.orderGet(app.db, id).extId; i++)
+      await new Promise(res => setTimeout(res, 50));
+    const o = app.store.orderGet(app.db, id);
+    provState.orders[o.extId] = { status: "Canceled" };
+    await call("/api/admin/provider-retry", { as: ADMIN, body: { id, action: "check" } });
+    const done = app.store.orderGet(app.db, id);
+    assert.strictEqual(done.status, "canceled");
+    assert.strictEqual(done.refunded, true);
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before);
+  });
+  await it("provayder xatosida buyurtma qo'lda bajarish uchun ochiq qoladi", async () => {
+    const cat = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const item = cat.find(x => x.id === "tg-stars");
+    item.tiers[0].auto = { provider: provId, service: "999", qty: 1 };
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: cat } });
+
+    const r = await call("/api/order", {
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+    });
+    const id = r.data.order.id;
+    for (let i = 0; i < 40 && app.store.orderGet(app.db, id).autoState !== "error"; i++)
+      await new Promise(res => setTimeout(res, 50));
+    const o = app.store.orderGet(app.db, id);
+    assert.strictEqual(o.status, "new", "xatoda ham holat o'zgarib ketdi");
+    assert.strictEqual(o.autoState, "error");
+    assert.ok(o.autoError.includes("Service not found"));
+
+    // Tozalash: avtomatikani o'chiramiz
+    item.tiers[0].auto = { provider: "", service: "", qty: 0 };
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: cat } });
+    await call("/api/admin/order", { as: ADMIN, body: { id, action: "cancel", note: "test" } });
+  });
+  await it("provayder sozlamalari faqat adminga ochiq", async () => {
+    assert.strictEqual((await call("/api/admin/providers", { as: USER })).status, 403);
+    assert.strictEqual((await call("/api/admin/provider-balance?id=" + provId, { as: USER })).status, 403);
+  });
+
   group("Sevimlilar");
   await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
     const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });
@@ -692,6 +838,7 @@ async function main() {
     assert.ok(r.data.orders >= 1);
   });
 
+  provServer.close();
   console.log("\n─────────────────────────────");
   console.log(passed + " ta test o'tdi, " + failed + " ta xato");
   app.server.close();

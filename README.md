@@ -109,6 +109,7 @@ Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
 | **Sharhlar** | Mijoz sharhlarini ko'rish, tahrirlash (baho, nom, matn) va nomaqbulini o'chirish |
 | **Sozlamalar** | Kartalar, kanallar (chat_id), referal, sodiqlik darajalari, yordam havolalari, ijtimoiy tarmoqlar, savol-javob, e'lon va "ilova haqida" matni |
 | **Tarqatma** | Barcha foydalanuvchilarga xabar |
+| **Avtomatika** | Tashqi donat / SMM saytlarini ulash: provayder qo'shish, balansni tekshirish, xizmatlar ro'yxatidan ID topish; buyurtma avtomatik yuboriladi va holati kuzatiladi |
 | **Tahlil** | 30 kunlik savdo grafigi, bugun/hafta/oy tushumi, oyning ko'p sotilganlari, yangi va faol mijozlar, **qaytmagan mijozlar** ro'yxati (har biriga xabar yuborish tugmasi bilan) |
 | **Zaxira / JSON** | Katalogni JSON sifatida eksport qilish va qaytadan import qilish |
 | **CSV Telegramga** | Buyurtmalar hisobotini adminning shaxsiy chatiga hujjat sifatida yuborish |
@@ -189,6 +190,44 @@ Botni oching → ilovaga kiring → **Profil → Admin panel** (faqat `ADMIN_IDS
    raqamni o'zi qaytaradi (kanallarniki `-100...` bilan boshlanadi).
 3. **Katalog** → narxlarni o'zgartiring, mahsulotga rasm havolasi va hudud yorlig'ini qo'ying →
    **Nashr qilish** tugmasini bosing (shundagina o'zgarish mijozlarga ko'rinadi).
+
+### Donat saytlarini API orqali ulash (avtomatika)
+
+Buyurtmani qo'lda bajarish shart emas: **Admin panel → Avtomatika** bo'limiga
+tashqi donat / nakrutka saytini ulaysiz, keyin **Katalog → paket** ichida
+provayder va xizmat ID'sini ko'rsatasiz. Mijoz xarid qilgan zahoti buyurtma
+o'sha saytga yuboriladi, bajarilgach o'zi «Bajarildi» bo'ladi.
+
+**Ikki xil ulanish**
+
+| Turi | Kimga | Qanday ishlaydi |
+|---|---|---|
+| **SMM / Perfect Panel** | Donat va nakrutka saytlarining aksariyati | `POST url` → `key`, `action=add\|status\|balance\|services`. Balans, xizmatlar ro'yxati va avtomatik holat kuzatuvi to'liq ishlaydi |
+| **Ixtiyoriy havola** | Boshqacha API bergan saytlar | Manzil qolipi yoziladi: `https://sayt.uz/api?token={key}&sku={service}&id={target}&n={qty}`. Javobdagi buyurtma raqami `idPath` orqali olinadi, holat esa `statusUrl` orqali so'raladi |
+
+Qoliplardagi `{key}` `{service}` `{target}` `{qty}` `{orderId}` `{extId}` avtomatik
+almashtiriladi.
+
+**Ulash tartibi**
+
+1. Saytdan API kalitini oling.
+2. **Avtomatika → Provayder qo'shish** → nomi, turi, manzili va kalitini yozing → **Saqlash**.
+3. **Balans** tugmasi bilan tekshiring — balans ko'rinsa ulanish to'g'ri.
+4. **Xizmatlar** tugmasi bilan ro'yxatni oching, kerakli xizmat ID'sini nusxalang.
+5. **Katalog → mahsulot → paket** ichidagi *Provayder ID*, *Xizmat ID* va *Miqdor*
+   maydonlarini to'ldiring → **Nashr qilish**.
+
+**Xavfsizlik va ishonchlilik**
+
+- API kaliti faqat serverda saqlanadi; admin paneliga ham niqoblangan
+  (`••••1234`) holda qaytadi va tahrirlashda qayta yozish shart emas.
+- Yuborishda xato bo'lsa buyurtma **«yangi»** bo'lib qoladi (holat o'zgarmaydi),
+  kanalga ogohlantirish tushadi va admin uni qo'lda bajaradi — **pul yo'qolmaydi**.
+- Provayder buyurtmani bekor qilsa, pul mijoz balansiga **bir marta** qaytariladi.
+- Holat har 5 daqiqada tekshiriladi; admin panelidagi «Holatni tekshirish» va
+  «Qayta yuborish» tugmalari bilan darhol ham tekshirsa bo'ladi.
+- Faqat `http(s)` manzillar qabul qilinadi, javob hajmi cheklangan, so'rov
+  20 soniyada uziladi.
 
 ### Rasmlar
 
@@ -277,6 +316,7 @@ Muddati o'tgan to'lovlar har daqiqada avtomatik `expired` ga o'tadi — lekin mi
 ```
 server.js        HTTP server, API, Telegram Bot API va webhook  (tashqi kutubxonasiz)
 db.js            SQLite qatlami (node:sqlite) — mahsulot, buyurtma, to'lov, mijoz, promokod
+providers.js     Tashqi donat / SMM saytlari qatlami (Perfect Panel va ixtiyoriy havola)
 seed.js          Birinchi ishga tushishdagi standart katalog
 public/
   index.html     Ilova karkasi (splash, sarlavha, tablar, sheet, tasdiq oynasi) va logotip SVG
@@ -284,8 +324,8 @@ public/
   icons.js       Qo'lda chizilgan SVG ikonkalar to'plami
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
-  admin.js       Admin panel (11 bo'lim)
-test/run.js      79 ta integratsion test — npm test
+  admin.js       Admin panel (12 bo'lim)
+test/run.js      87 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan

@@ -14,6 +14,7 @@ const crypto = require("crypto");
 const url = require("url");
 
 const store = require("./db.js");
+const prov = require("./providers.js");
 const { CATALOG, normalizeIcon } = require("./seed.js");
 
 /* ═══════════════ Konfiguratsiya ═══════════════ */
@@ -62,6 +63,13 @@ const DEFAULTS = {
     { id: "c2", type: "UZCARD", number: "8600 0202 0202 0202", holder: "MILLIY PIN" }
   ],
   channels: { order: process.env.ORDER_CHAT_ID || "", topup: process.env.TOPUP_CHAT_ID || "", log: "" },
+
+  /* Tashqi donat/SMM saytlari — buyurtmani avtomatik bajarish uchun.
+     kind = "smm"  → Perfect Panel standarti (nakrutka va SMM panellarining
+                     aksariyati shu): POST key, action=add|status|balance|services
+     kind = "http" → ixtiyoriy sayt: manzil qolipiga qiymatlar qo'yiladi.
+     API kaliti hech qachon mijoz tomoniga yuborilmaydi. */
+  providers: [],
   referral: { enabled: true, percent: 3, bonus: 0 },
   links: [
     { icon: "info", color: "acc", title: "Balansni qanday to'ldirish?", sub: "Bosqichma-bosqich qo'llanma", url: "" },
@@ -434,6 +442,95 @@ async function notifyTopup(p) {
   if (p.status === "confirmed") tgSend(p.uid, "✅ Balansingiz " + MONEY(p.amount) + " ga to'ldirildi.");
   if (p.status === "rejected") tgSend(p.uid, "❌ To'lov tasdiqlanmadi. Iltimos, qo'llab-quvvatlash bilan bog'laning.");
 }
+
+/* ═══════════════ Tashqi provayderlar (avtomatik bajarish) ═══════════════ */
+
+const providers = () => (cfg("providers") || []).filter(Boolean);
+const providerById = id => providers().find(p => p.id === String(id || ""));
+
+// Buyurtmani provayderga yuborish. Muvaffaqiyatli bo'lsa buyurtma "jarayonda"
+// holatiga o'tadi va extId saqlanadi; xato bo'lsa buyurtma "yangi" bo'lib
+// qoladi va admin xabar oladi — ya'ni pul yo'qolmaydi, admin qo'lda bajaradi.
+async function autoPlace(o, auto) {
+  const p = providerById(auto.provider);
+  if (!p || p.active === false) return;
+
+  o.autoState = "sending";
+  store.orderPut(db, o);
+
+  try {
+    const r = await prov.place(p, {
+      service: auto.service,
+      target: o.target,
+      qty: auto.qty || o.qty || 1,
+      orderId: o.id
+    });
+    o.extProvider = p.id;
+    o.extName = p.name;
+    o.extId = r.extId || "";
+    o.autoState = o.extId ? "sent" : "sent_no_id";
+    o.autoAt = now();
+    if (o.status === "new") { o.status = "processing"; o.procAt = now(); }
+    store.orderPut(db, o);
+    notifyOrder(o);
+    tgSend(chan("log") || chan("order"),
+      "🤖 <b>#" + o.seq + "</b> " + esc(p.name) + " ga yuborildi" +
+      (o.extId ? " (ID <code>" + esc(o.extId) + "</code>)" : ""), null, true);
+  } catch (e) {
+    o.autoState = "error";
+    o.autoError = String((e && e.message) || e).slice(0, 200);
+    o.autoAt = now();
+    store.orderPut(db, o);
+    // Xato bo'lsa jim qolmaymiz: admin buyurtmani qo'lda bajarishi kerak
+    tgSend(chan("order"),
+      "⚠️ <b>#" + o.seq + "</b> avtomatik yuborilmadi: " + esc(o.autoError) +
+      "\nQo'lda bajaring.", null, true);
+  }
+}
+
+// Yuborilgan buyurtmalarning holatini provayderdan so'rab, mahalliy holatni
+// yangilaydi: "completed" → bajarildi (keshbek va referal beriladi),
+// "canceled" → bekor qilinadi va pul bir marta qaytariladi.
+async function autoPoll() {
+  const list = store.ordersByStatus(db, "processing", 500).filter(o => o.extId && o.extProvider);
+  if (!list.length) return;
+
+  const byProv = {};
+  list.forEach(o => (byProv[o.extProvider] = byProv[o.extProvider] || []).push(o));
+
+  for (const pid of Object.keys(byProv)) {
+    const p = providerById(pid);
+    if (!p || p.active === false) continue;
+    const orders = byProv[pid];
+    for (let i = 0; i < orders.length; i += 100) {
+      const chunk = orders.slice(i, i + 100);
+      let map = {};
+      try { map = await prov.status(p, chunk.map(o => o.extId)); }
+      catch (e) { console.log("[provider]", p.name, String((e && e.message) || e)); continue; }
+
+      chunk.forEach(o => {
+        const st = map[String(o.extId)];
+        if (!st) return;
+        o.extStatus = st.raw;
+        o.extRemains = st.remains;
+        if (st.state === "done") {
+          o.status = "done"; o.doneAt = now();
+          rewardOnDone(o);
+          cacheClear();
+        } else if (st.state === "failed") {
+          if (!o.refunded) { balanceAdd(o.uid, o.total, "refund"); o.refunded = true; }
+          o.status = "canceled"; o.canceledAt = now();
+          o.cancelReason = "Provayder bekor qildi";
+        }
+        store.orderPut(db, o);
+        if (st.state === "done" || st.state === "failed") notifyOrder(o);
+      });
+    }
+  }
+}
+
+// Har 5 daqiqada — provayderlar odatda shuncha vaqtda bajaradi.
+setInterval(() => { autoPoll().catch(() => {}); }, 5 * 60 * 1000).unref();
 
 /* ═══════════════ Biznes-mantiq ═══════════════ */
 
@@ -917,6 +1014,14 @@ route("POST", "/api/order", (req, res) => {
     store.orderPut(db, o);
     notifyOrder(o);
     send(res, 200, { ok: true, order: o, balance: num(store.userGet(db, acc.id).balance) });
+
+    // Paketga provayder biriktirilgan bo'lsa — buyurtma darhol o'sha saytga
+    // yuboriladi. Javob mijozga allaqachon berilgan, shuning uchun bu yerda
+    // kutib turilmaydi: natija kanalga va buyurtma holatiga tushadi.
+    const auto = tier.auto || {};
+    if (auto.provider && auto.service) {
+      autoPlace(o, auto).catch(e => console.log("[autoPlace]", String((e && e.message) || e)));
+    }
   });
 });
 
@@ -1223,6 +1328,12 @@ route("POST", "/api/admin/catalog", (req, res) => {
         // cat — mahsulot ichidagi bo'lim (masalan "UC" va "To'plamlar"),
         // image — paket rasmi (UC uyumi, olmos to'plami va h.k.)
         cat: str(t.cat, 24), image: imgUrl(t.image),
+        // Avtomatik bajarish: qaysi provayderda qaysi xizmat va qancha miqdor
+        auto: {
+          provider: str((t.auto || {}).provider, 40),
+          service: str((t.auto || {}).service, 40),
+          qty: clampInt((t.auto || {}).qty, 0, 1e7)
+        },
         active: t.active !== false
       }))
     }));
@@ -1270,6 +1381,102 @@ route("POST", "/api/admin/user", (req, res) => {
       tgSend(target.id, "💬 <b>Qo'llab-quvvatlash</b>\n\n" + esc(text), null, true);
     } else return send(res, 400, { error: "bad_action" });
     send(res, 200, { ok: true, user: store.userGet(db, target.id) });
+  });
+});
+
+/* ── Provayderlar (tashqi donat saytlari) ── */
+
+// Ro'yxat — API kalitlari niqoblangan holda qaytadi.
+route("GET", "/api/admin/providers", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  send(res, 200, providers().map(prov.publicView));
+});
+
+// Saqlash. Kalit maydoni bo'sh yoki niqob ("••••") bo'lsa — eskisi qoladi,
+// ya'ni admin har tahrirda kalitni qayta yozishi shart emas.
+route("POST", "/api/admin/providers", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, b => {
+    if (!Array.isArray(b.items)) return send(res, 400, { error: "items_required" });
+    if (b.items.length > 20) return send(res, 400, { error: "too_many" });
+    const oldList = providers();
+    const clean = b.items.map(x => {
+      const id = str(x.id, 40) || uid7("pr_");
+      const prev = oldList.find(o => o.id === id) || {};
+      const key = str(x.key, 200);
+      return {
+        id,
+        name: str(x.name, 60) || "Provayder",
+        kind: str(x.kind, 10) === "http" ? "http" : "smm",
+        url: safeUrl(x.url),
+        key: (!key || key.indexOf("••") === 0) ? (prev.key || "") : key,
+        active: x.active !== false,
+        method: str(x.method, 6).toUpperCase() === "POST" ? "POST" : "GET",
+        idPath: str(x.idPath, 60),
+        statusUrl: str(x.statusUrl, 300),
+        statusPath: str(x.statusPath, 60),
+        bodyTemplate: str(x.bodyTemplate, 600),
+        authHeader: (!x.authHeader || String(x.authHeader).indexOf("••") === 0)
+          ? (prev.authHeader || "") : str(x.authHeader, 200)
+      };
+    }).filter(x => x.url);
+    cfgPut("providers", clean);
+    send(res, 200, { ok: true, count: clean.length });
+  });
+});
+
+// Provayder balansi — sozlash to'g'riligini bir bosishda tekshirish uchun.
+route("GET", "/api/admin/provider-balance", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const q = new URLSearchParams(url.parse(req.url).query || "");
+  const p = providerById(str(q.get("id"), 40));
+  if (!p) return send(res, 404, { error: "not_found" });
+  prov.balance(p)
+    .then(r => send(res, 200, r))
+    .catch(e => send(res, 502, { error: "provider_error", detail: String((e && e.message) || e).slice(0, 160) }));
+});
+
+// Xizmatlar ro'yxati — admin kerakli xizmat ID'sini shu yerdan topadi.
+// Ro'yxat katta bo'lgani uchun qidiruv bilan qisqartiriladi.
+route("GET", "/api/admin/provider-services", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const q = new URLSearchParams(url.parse(req.url).query || "");
+  const p = providerById(str(q.get("id"), 40));
+  if (!p) return send(res, 404, { error: "not_found" });
+  const needle = str(q.get("q"), 60).toLowerCase();
+  prov.services(p)
+    .then(list => {
+      const out = needle
+        ? list.filter(x => x.name.toLowerCase().includes(needle) ||
+                           x.category.toLowerCase().includes(needle) ||
+                           x.service === needle)
+        : list;
+      send(res, 200, { count: list.length, items: out.slice(0, 60) });
+    })
+    .catch(e => send(res, 502, { error: "provider_error", detail: String((e && e.message) || e).slice(0, 160) }));
+});
+
+// Avtomatik yuborilmagan yoki xato bergan buyurtmani qayta yuborish /
+// holatini darhol tekshirish.
+route("POST", "/api/admin/provider-retry", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, async b => {
+    const o = store.orderGet(db, str(b.id, 40));
+    if (!o) return send(res, 404, { error: "not_found" });
+    if (o.status === "done" || o.status === "canceled") return send(res, 400, { error: "already_done" });
+
+    if (str(b.action, 10) === "check") {
+      await autoPoll().catch(() => {});
+      return send(res, 200, { ok: true, order: store.orderGet(db, o.id) });
+    }
+
+    // Qaytadan yuborish uchun paketdagi sozlamani topamiz
+    const item = store.productGet(db, o.itemId);
+    const tier = item && (item.tiers || []).find(t => t.id === o.tierId);
+    const auto = (tier && tier.auto) || {};
+    if (!auto.provider || !auto.service) return send(res, 400, { error: "no_auto" });
+    await autoPlace(o, auto);
+    send(res, 200, { ok: true, order: store.orderGet(db, o.id) });
   });
 });
 

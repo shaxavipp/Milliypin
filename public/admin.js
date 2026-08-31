@@ -140,6 +140,7 @@
     promo:    { title: "Promokodlar",   render: scrPromo },
     reviews:  { title: "Sharhlar",      render: scrReviews },
     dash:     { title: "Tahlil",        render: scrDash },
+    autop:    { title: "Avtomatika",    render: scrAuto },
     settings: { title: "Sozlamalar",    render: scrSettings },
     cast:     { title: "Tarqatma",      render: scrCast },
     backup:   { title: "Zaxira / JSON", render: scrBackup }
@@ -180,6 +181,7 @@
     { id: "promo",    ic: "tag",       label: "Promokodlar" },
     { id: "reviews",  ic: "star",      label: "Sharhlar" },
     { id: "dash",     ic: "chart",     label: "Tahlil" },
+    { id: "autop",    ic: "bolt",      label: "Avtomatika" },
     { id: "settings", ic: "cog",       label: "Sozlamalar" },
     { id: "cast",     ic: "megaphone", label: "Tarqatma" }
   ];
@@ -358,6 +360,8 @@
             <span data-copy="${esc(o.uid)}">${ICO("user", 12)}${o.username ? "@" + esc(o.username) : esc(o.uid)}</span>
             ${o.balanceAfter !== undefined ? `<span title="Buyurtmadan keyingi balans">${ICO("wallet", 12)}${som(o.balanceAfter)}</span>` : ""}
             ${o.promoCode ? `<span>${ICO("tag", 12)}${esc(o.promoCode)}</span>` : ""}
+            ${o.extName ? `<span title="Avtomatik yuborilgan">${ICO("bolt", 12)}${esc(o.extName)}${o.extId ? " #" + esc(o.extId) : ""}${o.extStatus ? " · " + esc(o.extStatus) : ""}</span>` : ""}
+            ${o.autoState === "error" ? `<span style="color:var(--err)">${ICO("alert", 12)}${esc(o.autoError || "avtomatika xatosi")}</span>` : ""}
           </div>
           ${o.status === "new" || o.status === "processing" ? `
           <div class="acts">
@@ -365,6 +369,9 @@
             <button class="btn btn--acc btn-sm" data-ord="done" data-id="${esc(o.id)}">${ICO("check", 14)}Bajarildi</button>
             <button class="btn btn--danger btn-sm" data-ord="cancel" data-id="${esc(o.id)}">${ICO("x", 14)}Bekor</button>
             <button class="btn btn--line btn-sm" data-omsg="${esc(o.uid)}">${ICO("send", 14)}Xabar</button>
+            ${o.autoState === "error" || (o.extProvider && !o.extId)
+              ? `<button class="btn btn--line btn-sm" data-pretry="${esc(o.id)}">${ICO("refresh", 14)}Qayta yuborish</button>` : ""}
+            ${o.extId ? `<button class="btn btn--line btn-sm" data-pcheck="${esc(o.id)}">${ICO("bolt", 14)}Holatni tekshirish</button>` : ""}
           </div>` : ""}
         </div>`).join("")
         : `<div class="empty">${ICO("scroll", 34)}<div class="empty-t">Bo'sh</div></div>`}`);
@@ -402,6 +409,21 @@
           await api("/api/admin/user", { body: { id: om.getAttribute("data-omsg"), action: "message", text } });
           toast("Yuborildi", "ok");
         } catch (err) { toast(errText(err), "err"); }
+        return;
+      }
+
+      // Avtomatikani qayta yuborish yoki holatini so'rash
+      const pr = e.target.closest("[data-pretry]"), pc = e.target.closest("[data-pcheck]");
+      if (pr || pc) {
+        const btn = pr || pc;
+        btn.disabled = true;
+        try {
+          await api("/api/admin/provider-retry", {
+            body: { id: btn.getAttribute(pr ? "data-pretry" : "data-pcheck"), action: pr ? "send" : "check" }
+          });
+          toast(pr ? "Yuborildi" : "Tekshirildi", "ok");
+          go("orders");
+        } catch (err) { toast(errText(err), "err"); btn.disabled = false; }
         return;
       }
 
@@ -822,6 +844,11 @@
         qty: Number(row.querySelector("[data-k=qty]").value) || 0,
         cat: row.querySelector("[data-k=cat]").value.trim(),
         image: row.querySelector("[data-k=image]").value.trim(),
+        auto: {
+          provider: row.querySelector("[data-k=apid]").value.trim(),
+          service: row.querySelector("[data-k=asrv]").value.trim(),
+          qty: Number(row.querySelector("[data-k=aqty]").value) || 0
+        },
         active: true
       })).filter(x => x.label.uz || x.label.ru);
       toast("Saqlandi", "ok");
@@ -840,6 +867,11 @@
         <input class="input" data-k="badge" placeholder="Yorliq (TOP)" value="${esc(x.badge || "")}">
         <input class="input" data-k="qty" inputmode="numeric" placeholder="Miqdor" value="${Number(x.qty) || 0}">
         <input class="input" data-k="cat" placeholder="Bo'lim (UC / To'plam)" value="${esc(x.cat || "")}">
+      </div>
+      <div class="editgrid" style="margin-top:6px">
+        <input class="input" data-k="apid" placeholder="Provayder ID (avtomatika)" value="${esc((x.auto || {}).provider || "")}">
+        <input class="input" data-k="asrv" placeholder="Xizmat ID" value="${esc((x.auto || {}).service || "")}">
+        <input class="input" data-k="aqty" inputmode="numeric" placeholder="Miqdor (provayder uchun)" value="${Number((x.auto || {}).qty) || 0}">
       </div>
       <div class="imgpick" style="margin-top:6px">
         <span class="imgpick-p">${x.image ? `<img src="${esc(x.image)}" alt="">` : ICO("image", 18)}</span>
@@ -997,7 +1029,181 @@
     };
   }
 
-  /* ═══════════ Tahlil ═══════════ */
+  /* ═══════════ Avtomatika: tashqi donat saytlari ═══════════ */
+
+  const PKIND = [
+    { id: "smm", label: "SMM / Perfect Panel" },
+    { id: "http", label: "Ixtiyoriy havola" }
+  ];
+
+  function provRow(p) {
+    const smm = (p.kind || "smm") === "smm";
+    return `<div class="editrow" data-pid="${esc(p.id || "")}">
+      <input type="hidden" data-k="id" value="${esc(p.id || "")}">
+      <div class="editgrid">
+        <input class="input" data-k="name" placeholder="Nomi" value="${esc(p.name || "")}">
+        <select class="input" data-k="kind">
+          ${PKIND.map(k => `<option value="${k.id}" ${(p.kind || "smm") === k.id ? "selected" : ""}>${k.label}</option>`).join("")}
+        </select>
+      </div>
+      <input class="input" data-k="url" style="margin-top:6px"
+        placeholder="${smm ? "https://sayt.uz/api/v2" : "https://sayt.uz/api/order?token={key}&sku={service}&id={target}&n={qty}"}"
+        value="${esc(p.url || "")}">
+      <input class="input" data-k="key" style="margin-top:6px" placeholder="API kalit"
+        value="${esc(p.keyMask || "")}">
+      ${smm ? "" : `
+      <div class="editgrid" style="margin-top:6px">
+        <select class="input" data-k="method">
+          <option value="GET" ${p.method !== "POST" ? "selected" : ""}>GET</option>
+          <option value="POST" ${p.method === "POST" ? "selected" : ""}>POST</option>
+        </select>
+        <input class="input" data-k="idPath" placeholder="Javobdagi ID yo'li (order)" value="${esc(p.idPath || "")}">
+      </div>
+      <input class="input" data-k="statusUrl" style="margin-top:6px"
+        placeholder="Holat manzili: https://sayt.uz/api/status?token={key}&id={extId}" value="${esc(p.statusUrl || "")}">
+      <div class="editgrid" style="margin-top:6px">
+        <input class="input" data-k="statusPath" placeholder="Holat yo'li (status)" value="${esc(p.statusPath || "")}">
+        <input class="input" data-k="authHeader" placeholder="Authorization sarlavhasi" value="${esc(p.authHeader || "")}">
+      </div>
+      <textarea class="textarea code" data-k="bodyTemplate" style="margin-top:6px;min-height:60px"
+        placeholder='POST tanasi (ixtiyoriy): {"service":"{service}","target":"{target}","qty":{qty}}'>${esc(p.bodyTemplate || "")}</textarea>`}
+      <div class="switch" style="margin-top:8px"><span class="lbl">Faol</span>
+        <span class="sw ${p.active !== false ? "on" : ""}" data-k="active"><i></i></span></div>
+      <div class="acts" style="margin-top:8px">
+        ${smm ? `<button class="btn btn--line btn-sm" data-pbal="${esc(p.id || "")}">${ICO("wallet", 14)}Balans</button>
+                 <button class="btn btn--line btn-sm" data-psrv="${esc(p.id || "")}">${ICO("search", 14)}Xizmatlar</button>` : ""}
+        <button class="btn btn--danger btn-sm" data-pdel>${ICO("trash", 14)}O'chirish</button>
+      </div>
+      <div class="tiny mut" data-out style="margin-top:7px"></div>
+    </div>`;
+  }
+
+  async function scrAuto() {
+    const list = await api("/api/admin/providers");
+    body(`${backBar()}
+      <div class="hint" style="margin-bottom:11px">${ICO("info", 13)}<span>
+        Bu yerga donat va nakrutka saytlarini ulaysiz. Paketga provayder biriktirilsa,
+        mijoz xarid qilgan zahoti buyurtma o'sha saytga <b>avtomatik</b> yuboriladi va
+        bajarilgach o'zi "Bajarildi" bo'ladi. Xato bo'lsa buyurtma qo'lda bajarish uchun
+        ochiq qoladi va sizga xabar keladi — pul hech qachon yo'qolmaydi.</span></div>
+
+      <div id="provRows">${list.map(provRow).join("")}</div>
+      <button class="btn btn--line btn-w" id="provAdd" style="margin-top:9px">${ICO("plus", 14)}Provayder qo'shish</button>
+      <button class="btn btn--acc btn-w" id="provSave" style="margin-top:9px">${ICO("check", 15)}Saqlash</button>
+
+      <div class="sect"><h3>Qanday ulanadi</h3></div>
+      <div class="rows" style="padding:0">
+        <div class="row"><span class="row-ic">1</span><span class="row-b">
+          <span class="row-t">Saytdan API kalit oling</span>
+          <span class="row-s">Ko'pchilik saytda "API" bo'limida turadi</span></span></div>
+        <div class="row"><span class="row-ic">2</span><span class="row-b">
+          <span class="row-t">Turini tanlang</span>
+          <span class="row-s">SMM/Perfect Panel — eng keng tarqalgani; boshqasi uchun "Ixtiyoriy havola"</span></span></div>
+        <div class="row"><span class="row-ic">3</span><span class="row-b">
+          <span class="row-t">"Balans" bilan tekshiring</span>
+          <span class="row-s">Balans ko'rinsa — ulanish to'g'ri</span></span></div>
+        <div class="row"><span class="row-ic">4</span><span class="row-b">
+          <span class="row-t">"Xizmatlar"dan ID toping</span>
+          <span class="row-s">Kerakli xizmat ID'sini nusxalab, Katalog → paketga qo'ying</span></span></div>
+      </div>`);
+
+    el("provAdd").onclick = () => {
+      const w = document.createElement("div");
+      w.innerHTML = provRow({ id: "pr_" + Date.now().toString(36), kind: "smm", active: true });
+      el("provRows").appendChild(w.firstElementChild);
+    };
+
+    el("provSave").onclick = async () => {
+      const items = [...el("provRows").children].map(row => {
+        const g = k => { const n = row.querySelector('[data-k="' + k + '"]'); return n ? n.value.trim() : ""; };
+        return {
+          id: g("id"), name: g("name"), kind: g("kind"), url: g("url"), key: g("key"),
+          method: g("method"), idPath: g("idPath"), statusUrl: g("statusUrl"),
+          statusPath: g("statusPath"), bodyTemplate: g("bodyTemplate"), authHeader: g("authHeader"),
+          active: row.querySelector('[data-k="active"]').classList.contains("on")
+        };
+      });
+      try {
+        const r = await api("/api/admin/providers", { body: { items } });
+        toast("Saqlandi: " + r.count + " ta", "ok");
+        go("autop");
+      } catch (e) { toast(errText(e), "err"); }
+    };
+
+    el("admBody").addEventListener("click", async e => {
+      const sw = e.target.closest('[data-k="active"]');
+      if (sw) return sw.classList.toggle("on");
+
+      const del = e.target.closest("[data-pdel]");
+      if (del) {
+        if (!(await ask("Provayder o'chirilsinmi?", { yes: "O'chirish" }))) return;
+        del.closest(".editrow").remove();
+        return;
+      }
+
+      const bal = e.target.closest("[data-pbal]");
+      if (bal) {
+        const out = bal.closest(".editrow").querySelector("[data-out]");
+        out.textContent = "Tekshirilmoqda...";
+        try {
+          const r = await api("/api/admin/provider-balance?id=" + encodeURIComponent(bal.getAttribute("data-pbal")));
+          out.innerHTML = `<span class="okline">Balans: ${esc(String(r.balance))} ${esc(r.currency || "")}</span>`;
+        } catch (err) { out.innerHTML = `<span class="errline">${esc(errText(err))}</span>`; }
+        return;
+      }
+
+      const srv = e.target.closest("[data-psrv]");
+      if (srv) return openServices(srv.getAttribute("data-psrv"));
+    });
+  }
+
+  // Provayder xizmatlari ro'yxati — ID'ni nusxalab paketga qo'yish uchun
+  async function openServices(id) {
+    let q = "";
+    async function draw() {
+      body(`
+        <button class="admback" id="sBack">${ICO("back", 15)}Avtomatika</button>
+        <div class="inline" style="margin-bottom:11px">
+          <input class="input" id="sq" placeholder="Xizmat nomi bo'yicha qidirish" value="${esc(q)}">
+          <button class="btn btn--acc" id="sqBtn">${ICO("search", 15)}</button>
+        </div>
+        <div id="sList"><div class="skel"></div></div>`);
+      const ttl = el("sheetTitle");
+      if (ttl) ttl.textContent = "Xizmatlar";
+      el("sBack").onclick = () => go("autop");
+      window.mpSetSheetBack(() => { go("autop"); return true; });
+      const run = () => { q = el("sq").value.trim(); draw(); };
+      el("sqBtn").onclick = run;
+      el("sq").onkeydown = e => { if (e.key === "Enter") run(); };
+
+      try {
+        const r = await api("/api/admin/provider-services?id=" + encodeURIComponent(id) +
+          (q ? "&q=" + encodeURIComponent(q) : ""));
+        el("sList").innerHTML = `<div class="tiny mut" style="margin-bottom:8px">Jami ${r.count} ta xizmat · ko'rsatilgani ${r.items.length}</div>` +
+          (r.items.length ? `<div class="rows" style="padding:0">
+            ${r.items.map(x => `<div class="row">
+              <span class="row-ic">${ICO("bolt", 18)}</span>
+              <span class="row-b">
+                <span class="row-t">${esc(x.name)}</span>
+                <span class="row-s">${esc(x.category)} · ${x.min}–${x.max} · ${x.rate}/1000</span>
+              </span>
+              <span class="row-e"><button class="btn btn--line btn-sm" data-copy="${esc(x.service)}">
+                ID ${esc(x.service)}</button></span>
+            </div>`).join("")}</div>`
+            : `<div class="tiny mut">Topilmadi</div>`);
+      } catch (e) {
+        el("sList").innerHTML = `<div class="errline">${esc(errText(e))}</div>`;
+      }
+
+      el("admBody").addEventListener("click", ev => {
+        const c = ev.target.closest("[data-copy]");
+        if (c) window.mpCopy(c.getAttribute("data-copy"));
+      });
+    }
+    await draw();
+  }
+
+  /* ═══════════ Tahlil ═══════════ */  /* ═══════════ Tahlil ═══════════ */
 
   // 30 kunlik savdo grafigi — tashqi kutubxonasiz, oddiy SVG: ustunlar sirlangan
   // g'ishtdek, ustidan egri chiziq. Bo'sh kunlar ham ko'rinadi.
