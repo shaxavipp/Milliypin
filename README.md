@@ -31,8 +31,8 @@ turadi (Telegram Premium, Stars, sovg'alar, kanal xizmatlari).
 | **Bosh** | Salomlashuv, uch tugmali balans kartasi (to'ldirish / promokod / yordam), "Yana buyurtma qilish" tasmasi, ommabop xizmatlar to'ri, statistika, Top donaterlar, mijozlar bahosi kartasi |
 | **O'yinlar** | Qidiruv, turkum filtri (Barchasi / Telegram / O'yinlar), 3 ustunli katalog. Chegirma foizi va hudud yorlig'i plitada; texnik ishdagi xizmat xiralashadi va sotib olinmaydi |
 | **To'ldirish** | Balans, yakunlanmagan to'lov (bir bosishda kutish oynasiga qaytadi), to'lov usullari (UZCARD / HUMO), eng kam summa, yordam havolalari, oxirgi to'lovlar |
-| **Buyurtma** | "Buyurtmalar / To'lovlar" segmenti, holat filtri, ixcham qatorlar; qator bosilsa tafsilot oynasi (qayta buyurtma va baholash tugmalari bilan) |
-| **Profil** | Statistika, daraja, promokod oynasi, sodiqlik / referal / Top donaterlar / yordam qatorlari, til va mavzu, bildirishnoma va animatsiya kalitlari, havolalar, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
+| **Buyurtma** | "Buyurtmalar / To'lovlar" segmenti, qidiruv, holat filtri, ixcham qatorlar; qator bosilsa tafsilot oynasi — yo'l chizig'i, jadval, qayta buyurtma, baholash, bekor qilish va operatorga yozish |
+| **Profil** | Statistika, daraja, promokod oynasi, sodiqlik / sevimlilar / referal / Top donaterlar / yordam / ulashish qatorlari, til va mavzu, bildirishnoma va animatsiya kalitlari, havolalar, ijtimoiy tarmoqlar, savol-javob akkordeoni, ilova haqida, admin panel |
 
 Mahsulot oynasi o'yin do'konlaridagidek yig'ilgan: yuqorida **muqova rasmi**
 (ustida nom, valyuta turi, hudud yorlig'i, sevimlilar belgisi va haqiqiy
@@ -66,6 +66,14 @@ Ilova ichida faqat ikki yo'nalish bor va boshqa hech nima yo'q:
   ro'yxatga tushadi (serverda saqlanadi, qurilma almashsa ham qoladi)
 - **ID tekshirish**: kiritilgan ID formati darhol tekshiriladi — noto'g'ri
   terilgan raqam buyurtmadan oldin aytiladi
+- **Buyurtma yo'li**: qabul qilindi → bajarilmoqda → bajarildi, har bosqichning
+  vaqti bilan; bekor qilinganda sababi ham ko'rinadi
+- **Buyurtmani bekor qilish**: hali ishga olinmagan buyurtmani mijoz o'zi bekor
+  qiladi, pul darhol balansga qaytadi (olingandan keyin — operatorga yozish)
+- Sarlavha panelida **balans chipi**, navigatsiyada **ochiq buyurtma soni**
+- Barcha **sharhlar ro'yxati** (bosh sahifadagi baho kartasidan ochiladi)
+- Buyurtma ko'p bo'lsa ro'yxat ustida qidiruv; bo'sh holatlarda yo'l
+  ko'rsatuvchi tugmalar; tarmoq uzilsa "Qayta urinish"
 - Bosh sahifada **"Yana buyurtma qilish"** tasmasi — oxirgi olingan mahsulotlar
 - Buyurtmalar tarixi: "Buyurtmalar / To'lovlar" segmenti, holat filtri,
   qator bosilsa **tafsilot oynasi** (raqam, ma'lumot, summa, chegirma, keshbek,
@@ -277,7 +285,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (11 bo'lim)
-test/run.js      76 ta integratsion test — npm test
+test/run.js      79 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
