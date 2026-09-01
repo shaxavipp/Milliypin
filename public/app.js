@@ -299,11 +299,11 @@
     return `<section class="balcard">
       <span class="dome"><svg viewBox="0 0 64 64"><use href="#dome"/></svg></span>
       <div class="bal-head">
-        <div>
+        <button class="bal-main" ${act}>
           <span class="bal-k">${t("home.balance")}</span>
-          <div class="bal-v">${money(bal)}<span class="cur">${t("common.som")}</span></div>
-          ${l && l.current ? `<span class="bal-tier">${esc(l.current.name)}${l.current.percent ? " · " + l.current.percent + "%" : ""}</span>` : ""}
-        </div>
+          <span class="bal-v">${money(bal)}<span class="cur">${t("common.som")}</span></span>
+        </button>
+        ${l && l.current ? `<button class="bal-tier" data-act="loyalty">${esc(l.current.name)}${l.current.percent ? " · " + l.current.percent + "%" : ""}</button>` : ""}
       </div>
       <div class="bal-quick">
         <button ${act}>${ICO("wallet", 18)}${t("home.topup")}</button>
@@ -345,9 +345,9 @@
 
       ${sect(t("home.stats"), "", "minora")}
       <div class="stats">
-        <div class="stat"><div class="stat-v">${st ? money(st.users) : "—"}</div><div class="stat-k">${t("home.statUsers")}</div></div>
-        <div class="stat"><div class="stat-v">${st ? money(st.orders) : "—"}</div><div class="stat-k">${t("home.statOrders")}</div></div>
-        <div class="stat"><div class="stat-v">24/7</div><div class="stat-k">${t("profile.support")}</div></div>
+        <button class="stat" data-act="leaders"><div class="stat-v">${st ? money(st.users) : "—"}</div><div class="stat-k">${t("home.statUsers")}</div></button>
+        <button class="stat" data-go="orders"><div class="stat-v">${st ? money(st.orders) : "—"}</div><div class="stat-k">${t("home.statOrders")}</div></button>
+        <button class="stat" data-act="support"><div class="stat-v">24/7</div><div class="stat-k">${t("profile.support")}</div></button>
       </div>
 
       <button class="wide" data-act="leaders" style="margin-top:14px">
@@ -725,15 +725,15 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><div class="stat-v">${money(me.balance)}</div><div class="stat-k">${t("profile.balance")}</div></div>
-        <div class="stat"><div class="stat-v">${money(me.spent)}</div><div class="stat-k">${t("profile.spent")}</div></div>
-        <div class="stat"><div class="stat-v">${(me.orders || []).length}</div><div class="stat-k">${t("profile.orders")}</div></div>
+        <button class="stat" data-go="topup"><div class="stat-v">${money(me.balance)}</div><div class="stat-k">${t("profile.balance")}</div></button>
+        <button class="stat" data-act="loyalty"><div class="stat-v">${money(me.spent)}</div><div class="stat-k">${t("profile.spent")}</div></button>
+        <button class="stat" data-go="orders"><div class="stat-v">${(me.orders || []).length}</div><div class="stat-k">${t("profile.orders")}</div></button>
       </div>
 
-      ${l && l.next ? `<div class="ocard" style="margin-top:9px">
+      ${l && l.next ? `<button class="ocard" data-act="loyalty" style="margin-top:9px;width:calc(100% - 28px);text-align:left">
         <div class="tiny mut">${t("profile.toNext")} <b style="color:var(--gold)">${esc(l.next.name)}</b> — <span class="price">${som(left)}</span></div>
         <div class="progress"><i style="width:${pct}%"></i></div>
-      </div>` : ""}
+      </button>` : ""}
 
       <div class="menu">
         ${svc("tag", "gold", t("promo.title"), t("promo.sub"),

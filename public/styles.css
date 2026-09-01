@@ -254,16 +254,22 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -.018em; }
 }
 .balcard > * { position: relative; }
 .bal-k { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); }
-.bal-v { font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 3px; }
+.bal-main { display: block; width: 100%; text-align: left; }
+.bal-main:active { transform: scale(.985); }
+.bal-v { display: block; font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 3px; }
 .bal-v .cur { font-family: Archivo, sans-serif; font-size: 14px; font-weight: 600;
   color: var(--mut); margin-left: 6px; letter-spacing: 0; }
 .bal-tier {
-  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  display: inline-flex; cursor: pointer; align-items: center; gap: 5px; margin-top: 8px;
   font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
   color: var(--gold); background: var(--goldsoft); border: 1px solid var(--hdrline);
   padding: 3px 8px; border-radius: var(--r-xs);
 }
 .bal-acts { display: flex; gap: 8px; margin-top: 13px; }
+
+/* Statistika kartasi endi tugma — bosilganda tegishli bo'limga olib boradi */
+button.stat { text-align: center; width: 100%; }
+button.stat:active { transform: scale(.96); }
 
 /* ─────────────────── 7. Tugmalar ─────────────────── */
 
@@ -730,7 +736,9 @@ select.input { background-image: none; }
   color: var(--gold); opacity: .16; pointer-events: none;
 }
 .balcard .dome svg { width: 100%; height: 100%; }
-.bal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+/* Balans va daraja yorlig'i ustma-ust turadi: yorliq summaning ostida qoladi,
+   gumbaz bezagi ustiga chiqib ketmaydi. */
+.bal-head { display: flex; flex-direction: column; align-items: flex-start; }
 
 /* Tezkor tugmalar juftligi */
 .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px; margin-top: 9px; }
