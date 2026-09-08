@@ -1034,8 +1034,8 @@
         onerror="this.remove()">` : ""}${ICO(it.icon, 22) || ICO("gift", 22)}</span>
       <span class="pack-b">
         <span class="pack-l">${esc(pick(x.label))}</span>
-        <span class="pack-p price">${money(x.price)}<span class="cur">${t("common.som")}</span>${
-          x.old && x.old > x.price ? `<span class="pack-old">${money(x.old)}</span>` : ""}</span>
+        <span class="pack-p price">${money(x.price)}<span class="cur">${t("common.som")}</span></span>
+        ${x.old && x.old > x.price ? `<span class="pack-old price">${money(x.old)}</span>` : ""}
       </span>
     </button>`).join("");
   }
