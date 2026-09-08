@@ -831,6 +831,76 @@ async function main() {
     if (p2.users.length) assert.ok(!("notifEnabled" in p2.users[0]) || true);
   });
 
+  group("Do'kon yopiq rejimi va narxlar");
+  await it("yopiq do'konda buyurtma qabul qilinmaydi", async () => {
+    const st = (await call("/api/admin/settings", { as: ADMIN })).data;
+    await call("/api/admin/settings", { as: ADMIN, body: {
+      shop: Object.assign({}, st.shop, { closed: true, closedNote: "Texnik ish" })
+    }});
+    const c = await call("/api/config");
+    assert.strictEqual(c.data.closed, true);
+    assert.strictEqual(c.data.closedNote, "Texnik ish");
+
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@yopiq", confirmDup: true } });
+    assert.strictEqual(r.status, 503);
+    assert.strictEqual(r.data.error, "shop_closed");
+
+    await call("/api/admin/settings", { as: ADMIN, body: {
+      shop: Object.assign({}, st.shop, { closed: false, closedNote: "" })
+    }});
+    const back = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@yopiq", confirmDup: true } });
+    assert.strictEqual(back.status, 200, "ochilgach ham qabul qilinmadi");
+    await call("/api/order/cancel", { as: USER, body: { id: back.data.order.id } });
+  });
+  await it("narxlar foizga o'zgaradi va yaxlitlanadi", async () => {
+    const t0 = (await call("/api/admin/catalog", { as: ADMIN })).data
+      .find(x => x.id === "tg-premium").tiers[0];
+    const before = t0.price, oldBefore = Number(t0.old) || 0;
+
+    const r = await call("/api/admin/prices", { as: ADMIN, body: { percent: 10, itemId: "tg-premium" } });
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.changed > 0);
+
+    const after = (await call("/api/admin/catalog", { as: ADMIN })).data
+      .find(x => x.id === "tg-premium").tiers[0];
+    assert.strictEqual(after.price, Math.round(before * 1.1 / 100) * 100);
+    // Eski narx bo'lmasa yangisi qo'yiladi; bo'lsa — tegilmaydi
+    assert.strictEqual(after.old, oldBefore || before);
+  });
+  await it("eski narxsiz paketga chizilgan narx qo'yiladi", async () => {
+    const list = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    const it2 = list.find(x => x.id === "tg-views");
+    it2.tiers.forEach(t2 => { t2.old = 0; });
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: list } });
+    const was = (await call("/api/admin/catalog", { as: ADMIN })).data
+      .find(x => x.id === "tg-views").tiers[0].price;
+
+    await call("/api/admin/prices", { as: ADMIN, body: { percent: 20, itemId: "tg-views" } });
+    const now2 = (await call("/api/admin/catalog", { as: ADMIN })).data
+      .find(x => x.id === "tg-views").tiers[0];
+    assert.strictEqual(now2.old, was, "eski narx qo'yilmadi");
+    assert.ok(now2.price > was);
+  });
+  await it("narx tushsa eskirgan chizilgan narx olib tashlanadi", async () => {
+    await call("/api/admin/prices", { as: ADMIN, body: { percent: -40, itemId: "tg-views", keepOld: false } });
+    const t2 = (await call("/api/admin/catalog", { as: ADMIN })).data
+      .find(x => x.id === "tg-views").tiers[0];
+    assert.ok(!t2.old || t2.old > t2.price, "chizilgan narx joriy narxdan past qolib ketdi");
+  });
+  await it("bo'sh o'zgarish rad etiladi", async () => {
+    const r = await call("/api/admin/prices", { as: ADMIN, body: { percent: 0, add: 0 } });
+    assert.strictEqual(r.status, 400);
+  });
+  await it("narx vositasi faqat adminga ochiq", async () => {
+    assert.strictEqual((await call("/api/admin/prices", { as: USER, body: { percent: 5 } })).status, 403);
+  });
+  await it("sozlash holati overview'da qaytadi", async () => {
+    const r = await call("/api/admin/overview?period=today", { as: ADMIN });
+    assert.ok(r.data.setup);
+    assert.strictEqual(typeof r.data.setup.cards, "boolean");
+    assert.strictEqual(r.data.setup.webhook, true);
+  });
+
   group("Sevimlilar");
   await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
     const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });

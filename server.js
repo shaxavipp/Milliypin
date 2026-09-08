@@ -51,6 +51,10 @@ const db = store.openDb(DATA_DIR);
 const DEFAULTS = {
   shop: {
     brand: "Milliy Pin",
+    // Do'konni vaqtincha yopish (dam olish, texnik ish): mijoz katalogni
+    // ko'radi, ammo buyurtma bera olmaydi va sabab yozib ko'rsatiladi.
+    closed: false,
+    closedNote: "",
     supportUsername: process.env.SUPPORT_USERNAME || "milliypin_support",
     channelUrl: process.env.CHANNEL_URL || "",
     reviewsUrl: "",
@@ -717,6 +721,8 @@ route("GET", "/api/config", (req, res) => {
     support: shop.supportUsername,
     channelUrl: shop.channelUrl,
     reviewsUrl: shop.reviewsUrl,
+    closed: !!shop.closed,
+    closedNote: str(shop.closedNote, 200),
     workHours: shop.workHours,
     notice: { uz: shop.noticeUz || "", ru: shop.noticeRu || "" },
     cards: cfg("cards").map(c => ({ id: c.id, type: c.type, number: c.number, holder: c.holder })),
@@ -993,6 +999,8 @@ route("POST", "/api/order", (req, res) => {
   readBody(req, res, b => {
     const acc = account(u);
     if (acc.blocked) return send(res, 403, { error: "blocked" });
+    const shopCfg = cfg("shop");
+    if (shopCfg.closed) return send(res, 503, { error: "shop_closed", note: str(shopCfg.closedNote, 200) });
 
     const item = store.productGet(db, str(b.itemId, 40));
     if (!item || item.active === false) return send(res, 404, { error: "item_not_found" });
@@ -1103,7 +1111,18 @@ route("GET", "/api/admin/overview", (req, res) => {
     pendingPayments: store.paymentsByStatus(db, "pending", 500).length,
     top: Object.entries(doneIn.reduce((m, o) => {
       m[o.itemTitle] = (m[o.itemTitle] || 0) + 1; return m;
-    }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([title, n]) => ({ title, n }))
+    }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([title, n]) => ({ title, n })),
+
+    // Sozlash holati — yangi o'rnatilgan do'kon egasiga nima qilish
+    // kerakligini ko'rsatish uchun. Hammasi tayyor bo'lsa ro'yxat ko'rinmaydi.
+    setup: {
+      cards: (cfg("cards") || []).filter(c => c.number).length > 0,
+      channel: !!str(cfg("channels").order, 40),
+      support: !!str(cfg("shop").supportUsername, 40),
+      webhook: !!WEBHOOK_SECRET,
+      catalog: store.productsAll(db, true).length > 0,
+      closed: !!cfg("shop").closed
+    }
   });
 });
 
@@ -1379,6 +1398,41 @@ route("POST", "/api/admin/catalog", (req, res) => {
   });
 });
 
+/* Narxlarni ommaviy o'zgartirish — kurs o'zgarganda o'nlab paketni qo'lda
+   tahrirlash o'rniga bir amalda. Foiz yoki so'mda, butun katalog yoki bitta
+   mahsulot bo'yicha. Yakuniy narx 100 so'mgacha yaxlitlanadi. */
+route("POST", "/api/admin/prices", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, b => {
+    const pct = Number(b.percent) || 0;
+    const add = clampInt(b.add, -1e9, 1e9);
+    if (!pct && !add) return send(res, 400, { error: "no_change" });
+    const onlyItem = str(b.itemId, 40);
+    const keepOld = b.keepOld !== false;
+
+    const items = store.productsAll(db, false);
+    let changed = 0;
+    items.forEach(it => {
+      if (onlyItem && it.id !== onlyItem) return;
+      (it.tiers || []).forEach(t2 => {
+        const was = num(t2.price);
+        if (!was) return;
+        let next = was * (1 + pct / 100) + add;
+        next = Math.max(0, Math.round(next / 100) * 100);
+        if (next === was) return;
+        // Narx oshsa eski narxni chizilgan holda saqlash mumkin
+        if (keepOld && next > was && !t2.old) t2.old = was;
+        if (next < was && t2.old && t2.old <= next) t2.old = 0;
+        t2.price = next;
+        changed++;
+      });
+    });
+    store.productsReplaceAll(db, items);
+    cacheClear();
+    send(res, 200, { ok: true, changed });
+  });
+});
+
 route("GET", "/api/admin/users", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const q = new URLSearchParams(url.parse(req.url).query || "");
@@ -1536,7 +1590,9 @@ route("POST", "/api/admin/settings", (req, res) => {
       reviewsUrl: safeUrl(b.shop.reviewsUrl),
       workHours: str(b.shop.workHours, 40),
       noticeUz: str(b.shop.noticeUz, 300),
-      noticeRu: str(b.shop.noticeRu, 300)
+      noticeRu: str(b.shop.noticeRu, 300),
+      closed: !!b.shop.closed,
+      closedNote: str(b.shop.closedNote, 200)
     });
     if (Array.isArray(b.cards)) cfgPut("cards", b.cards.slice(0, 8).map((c, i) => ({
       id: str(c.id, 20) || "c" + (i + 1),

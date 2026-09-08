@@ -1410,3 +1410,24 @@ select.input { background-image: none; }
   .balchip { max-width: 104px; padding: 0 9px; font-size: 11.5px; }
   .hi-k { display: none; }
 }
+
+/* Admin: sozlash qadamlari ro'yxati (faqat tugallanmagan bo'lsa ko'rinadi) */
+.setup { border: 1px solid var(--goldsoft); border-radius: var(--r);
+  background: var(--card); overflow: hidden; margin-bottom: 12px; }
+.setup-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: var(--goldsoft); color: var(--gold);
+  font-size: 12px; font-weight: 800; letter-spacing: .02em; }
+.setup-h .ic { width: 14px; height: 14px; }
+.setup-i { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; color: var(--txt); }
+.setup-i + .setup-i { border-top: 1px solid var(--line); }
+.setup-i[disabled] { opacity: .75; }
+.setup-n { width: 16px; height: 16px; flex: 0 0 auto; border-radius: 50%;
+  border: 1.5px dashed var(--line2); }
+.setup-b { flex: 1; min-width: 0; }
+.setup-t { display: block; font-size: 12.5px; font-weight: 700; }
+.setup-s { display: block; font-size: 10.5px; color: var(--mut); margin-top: 2px; line-height: 1.4; }
+
+/* Do'kon yopiq ogohlantirishi */
+.notice--stop { border-left-color: var(--err); }
+.notice--stop .ic { color: var(--err); }

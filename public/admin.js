@@ -195,6 +195,38 @@
     ]}
   ];
 
+  // Yangi o'rnatilgan do'kon uchun qadamlar ro'yxati. Hammasi tayyor bo'lsa
+  // ko'rinmaydi — tajribali admin uchun ekranni band qilmaydi.
+  const SETUP = [
+    { k: "cards",   label: "Karta rekvizitlarini kiriting", go: "settings" },
+    { k: "channel", label: "Buyurtmalar kanalini ulang",     go: "settings" },
+    { k: "support", label: "Operator username'ini yozing",   go: "settings" },
+    { k: "catalog", label: "Katalogni nashr qiling",         go: "catalog" },
+    { k: "webhook", label: "TG_WEBHOOK_SECRET o'rnating",    go: null,
+      hint: "Railway → Variables. Busiz bank SMS'idan avtomatik tasdiqlash va kanal tugmalari ishlamaydi." }
+  ];
+
+  function setupHTML(su) {
+    if (!su) return "";
+    const left = SETUP.filter(x => !su[x.k]);
+    const closed = su.closed
+      ? `<div class="hint" style="margin-bottom:9px;border-left-color:var(--err)">
+           ${ICO("alert", 13)}<span><b>Do'kon yopiq</b> — mijozlar buyurtma bera olmaydi.
+           Sozlamalar bo'limidan ochasiz.</span></div>` : "";
+    if (!left.length) return closed;
+    return closed + `<div class="setup">
+      <div class="setup-h">${ICO("alert", 14)}<span>Sozlash tugallanmagan — ${left.length} ta qadam</span></div>
+      ${left.map(x => `<button class="setup-i" ${x.go ? `data-go="${x.go}"` : "disabled"}>
+        <span class="setup-n"></span>
+        <span class="setup-b">
+          <span class="setup-t">${x.label}</span>
+          ${x.hint ? `<span class="setup-s">${x.hint}</span>` : ""}
+        </span>
+        ${x.go ? ICO("chevron", 14) : ""}
+      </button>`).join("")}
+    </div>`;
+  }
+
   async function scrMenu() {
     const d = await api("/api/admin/overview?period=" + A.period);
     const open = d.pendingOrders + d.processingOrders + d.pendingPayments;
@@ -210,6 +242,8 @@
         </span>
         ${ICO("chevron", 16)}
       </button>
+
+      ${setupHTML(d.setup)}
 
       <div class="lb-period" id="pSeg" style="margin-top:12px">
         ${PERIODS.map(p => `<button data-p="${p.id}" class="${p.id === A.period ? "on" : ""}">${p.label}</button>`).join("")}
@@ -666,6 +700,7 @@
       <button class="btn btn--ok btn-w" id="catSave">${ICO("send", 15)}Nashr qilish — hammaga ko'rsatish</button>
       <div class="hint" style="margin-top:7px">${ICO("info", 13)}<span>Joriy katalogni serverga yuboradi: barcha mijozlar darhol ko'radi.</span></div>
       <button class="btn btn--acc btn-w" id="catAdd" style="margin-top:9px">${ICO("plus", 15)}Yangi mahsulot</button>
+      <button class="btn btn--line btn-w" id="priceTool" style="margin-top:9px">${ICO("tag", 15)}Narxlarni ommaviy o'zgartirish</button>
 
       <div class="sect"><h3>Katalog · ${A.catalog.length} ta</h3></div>
       <div class="catlist">
@@ -695,6 +730,7 @@
       } catch (e) { toast(errText(e), "err"); }
       b.disabled = false;
     };
+    el("priceTool").onclick = openPriceTool;
     el("catAdd").onclick = () => {
       A.catalog.unshift({
         id: "it_" + Date.now().toString(36), category: "game", group: "Yangi guruh", icon: "pad",
@@ -741,6 +777,87 @@
         return;
       }
     });
+  }
+
+  // Kurs o'zgarganda o'nlab paketni qo'lda tahrirlash o'rniga bir amalda.
+  function openPriceTool() {
+    body(`
+      <button class="admback" id="ptBack">${ICO("back", 15)}Katalog</button>
+      <div class="hint">${ICO("info", 13)}<span>Narxlar tanlangan foiz yoki summaga o'zgaradi va 100 so'mgacha yaxlitlanadi. O'zgartirgach <b>Nashr qilish</b>ni bosing.</span></div>
+
+      <div class="fld"><label class="lbl">Qaysi mahsulot</label>
+        <select class="input" id="ptItem">
+          <option value="">Butun katalog (${A.catalog.length} ta)</option>
+          ${A.catalog.map(it => `<option value="${esc(it.id)}">${esc(window.I18N.pick(it.title) || it.id)}</option>`).join("")}
+        </select></div>
+
+      <div class="editgrid" style="margin-top:10px">
+        <div><label class="lbl">Foiz (%)</label>
+          <input class="input" id="ptPct" inputmode="decimal" placeholder="Masalan: 5 yoki -3" value=""></div>
+        <div><label class="lbl">Qo'shimcha (so'm)</label>
+          <input class="input" id="ptAdd" inputmode="numeric" placeholder="Masalan: 500" value=""></div>
+      </div>
+
+      <div class="switch" style="margin-top:10px"><span class="lbl">Narx oshsa eskisini chizilgan holda saqlash</span>
+        <span class="sw on" id="ptKeep"><i></i></span></div>
+
+      <div class="pills pills--v" id="ptQuick" style="margin-top:11px">
+        <button class="pill" data-pq="5">+5%</button>
+        <button class="pill" data-pq="10">+10%</button>
+        <button class="pill" data-pq="-5">−5%</button>
+        <button class="pill" data-pq="-10">−10%</button>
+      </div>
+
+      <div id="ptPrev" class="tiny mut" style="margin-top:11px"></div>
+      <button class="btn btn--danger btn-w" id="ptGo" style="margin-top:11px">${ICO("check", 15)}Narxlarni o'zgartirish</button>`);
+
+    const ttl2 = el("sheetTitle");
+    if (ttl2) ttl2.textContent = "Narxlar";
+    el("ptBack").onclick = () => go("catalog");
+    window.mpSetSheetBack(() => { go("catalog"); return true; });
+    el("ptKeep").onclick = () => el("ptKeep").classList.toggle("on");
+
+    // Oldindan ko'rish: birinchi mahsulotning birinchi paketi qanday bo'ladi
+    const preview = () => {
+      const pct = Number(el("ptPct").value) || 0;
+      const add = Number(el("ptAdd").value) || 0;
+      const id = el("ptItem").value;
+      const it = id ? A.catalog.find(x => x.id === id) : A.catalog[0];
+      const t2 = it && (it.tiers || [])[0];
+      if (!t2 || (!pct && !add)) return el("ptPrev").textContent = "";
+      const next = Math.max(0, Math.round((t2.price * (1 + pct / 100) + add) / 100) * 100);
+      el("ptPrev").innerHTML = `Masalan: <b>${esc(window.I18N.pick(it.title))}</b> · ${esc(window.I18N.pick(t2.label))} — ` +
+        `<span class="price">${som(t2.price)}</span> → <span class="price" style="color:var(--acc)">${som(next)}</span>`;
+    };
+    ["ptPct", "ptAdd", "ptItem"].forEach(id => { el(id).oninput = preview; el(id).onchange = preview; });
+    el("ptQuick").onclick = e => {
+      const b = e.target.closest("[data-pq]");
+      if (!b) return;
+      el("ptPct").value = b.getAttribute("data-pq");
+      [...el("ptQuick").children].forEach(c => c.classList.toggle("on", c === b));
+      preview();
+    };
+
+    el("ptGo").onclick = async () => {
+      const pct = Number(el("ptPct").value) || 0;
+      const add = Number(el("ptAdd").value) || 0;
+      if (!pct && !add) return toast("Foiz yoki summani kiriting", "err");
+      const id = el("ptItem").value;
+      const scope = id ? window.I18N.pick((A.catalog.find(x => x.id === id) || {}).title) : "butun katalog";
+      if (!(await ask("Narxlar o'zgartirilsinmi?", {
+        text: scope + " · " + (pct ? (pct > 0 ? "+" : "") + pct + "%" : "") +
+              (add ? (pct ? ", " : "") + (add > 0 ? "+" : "") + add + " so'm" : ""),
+        yes: "O'zgartirish"
+      }))) return;
+      try {
+        const r = await api("/api/admin/prices", {
+          body: { percent: pct, add, itemId: id, keepOld: el("ptKeep").classList.contains("on") }
+        });
+        toast("O'zgartirildi: " + r.changed + " ta paket", "ok");
+        A.catalog = await api("/api/admin/catalog");
+        go("catalog");
+      } catch (e) { toast(errText(e), "err"); }
+    };
   }
 
   const FIELDS = [
@@ -1371,6 +1488,11 @@
       <div class="fld"><label class="lbl">E'lon (UZ)</label><textarea class="textarea" id="sNoteUz">${esc(s.shop.noticeUz)}</textarea></div>
       <div class="fld"><label class="lbl">E'lon (RU)</label><textarea class="textarea" id="sNoteRu">${esc(s.shop.noticeRu)}</textarea></div>
 
+      <div class="switch" style="margin-top:12px"><span class="lbl">Do'konni vaqtincha yopish</span>
+        <span class="sw ${s.shop.closed ? "on" : ""}" id="sClosed"><i></i></span></div>
+      <div class="hint">${ICO("info", 13)}<span>Yopilganda mijozlar katalogni ko'radi, ammo buyurtma bera olmaydi. Sabab quyida yozilsa, ularga ko'rsatiladi.</span></div>
+      <div class="fld"><input class="input" id="sClosedNote" placeholder="Masalan: 20:00 gacha texnik ish" value="${esc(s.shop.closedNote || "")}"></div>
+
       <div class="sect"><h3>Kartalar</h3></div>
       <div id="cardRows">${(s.cards || []).map(cardRow).join("")}</div>
       <button class="btn btn--line btn-w" id="cardAdd" style="margin-top:9px">${ICO("plus", 14)}Karta</button>
@@ -1421,6 +1543,7 @@
       w.innerHTML = tpl();
       el(boxId).appendChild(w.firstElementChild);
     };
+    el("sClosed").onclick = () => el("sClosed").classList.toggle("on");
     el("cardAdd").onclick = adder("cardRows", () => cardRow({ id: "c" + Date.now().toString(36), type: "HUMO" }));
     el("loyAdd").onclick = adder("tierCfg", () => loyRow({}));
     el("linkAdd").onclick = adder("linkRows", () => linkRow({ icon: "info", color: "acc" }));
@@ -1463,6 +1586,8 @@
             faq: rows("faqRows", ["q", "a"]),
             about: el("sAbout").value.trim(),
             shop: {
+              closed: el("sClosed").classList.contains("on"),
+              closedNote: el("sClosedNote").value.trim(),
               brand: el("sBrand").value, supportUsername: el("sSup").value,
               channelUrl: el("sChan").value, reviewsUrl: el("sRev").value,
               workHours: el("sHours").value,

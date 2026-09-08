@@ -107,10 +107,12 @@ Kutayotgan ish bor bo'limda tugma ustida qizil son chiqadi.
 | **Katalog** | Mahsulot qatorlari ikonkali tugmalar bilan (yuqoriga / tahrirlash / ko'rinish / o'chirish); muqova va paket rasmlari **telefondan yuklanadi**, paketga bo'lim nomi beriladi; yashil **Nashr qilish** va ko'k **Yangi mahsulot** |
 | **Promokodlar** | Foiz yoki so'mda, limit, min. buyurtma va mijozga ko'rinadigan izoh bilan |
 | **Sharhlar** | Mijoz sharhlarini ko'rish, tahrirlash (baho, nom, matn) va nomaqbulini o'chirish |
-| **Sozlamalar** | Kartalar, kanallar (chat_id), referal, sodiqlik darajalari, yordam havolalari, ijtimoiy tarmoqlar, savol-javob, e'lon va "ilova haqida" matni |
+| **Sozlamalar** | Kartalar, kanallar (chat_id), referal, sodiqlik darajalari, yordam havolalari, ijtimoiy tarmoqlar, savol-javob, e'lon, "ilova haqida" matni va **do'konni vaqtincha yopish** |
 | **Tarqatma** | Barcha foydalanuvchilarga xabar |
+| **Narxlar** (Katalog ichida) | Butun katalog yoki bitta mahsulot narxini foiz/summaga o'zgartirish, 100 so'mgacha yaxlitlash, oldindan ko'rish; narx oshsa eskisi chizilgan holda saqlanadi |
 | **Avtomatika** | Tashqi donat / SMM saytlarini ulash: provayder qo'shish, balansni tekshirish, xizmatlar ro'yxatidan ID topish; buyurtma avtomatik yuboriladi va holati kuzatiladi |
 | **Tahlil** | 30 kunlik savdo grafigi, bugun/hafta/oy tushumi, oyning ko'p sotilganlari, yangi va faol mijozlar, **qaytmagan mijozlar** ro'yxati (har biriga xabar yuborish tugmasi bilan) |
+| **Zaxira** | Katalog, sozlamalar, mijozlar, buyurtmalar va to'lovlarni bitta JSON qilib Telegramga yuborish (**har kuni 03:00 da avtomatik**); katalogni JSON sifatida eksport/import |
 | **Zaxira / JSON** | Katalogni JSON sifatida eksport qilish va qaytadan import qilish |
 | **CSV Telegramga** | Buyurtmalar hisobotini adminning shaxsiy chatiga hujjat sifatida yuborish |
 
@@ -229,6 +231,18 @@ almashtiriladi.
 - Faqat `http(s)` manzillar qabul qilinadi, javob hajmi cheklangan, so'rov
   20 soniyada uziladi.
 
+### Do'konni boshqarish qulayliklari
+
+| Vosita | Nima beradi |
+|---|---|
+| **Sozlash ro'yxati** | Yangi o'rnatilgan do'konda admin menyusining tepasida qolgan qadamlar ko'rinadi (kartalar, kanal, operator, katalog, webhook sekreti). Hammasi tayyor bo'lsa ro'yxat yo'qoladi |
+| **Do'konni vaqtincha yopish** | Sozlamalardagi kalit. Yopilganda mijozlar katalogni ko'radi, ammo buyurtma bera olmaydi; sabab bosh sahifada ko'rsatiladi |
+| **Narxlarni ommaviy o'zgartirish** | Kurs o'zgarganda butun katalogni bir amalda: foiz yoki summa, oldindan ko'rish, 100 so'mgacha yaxlitlash |
+| **Avtomatik zaxira** | Har kuni 03:00 da to'liq JSON adminning Telegramiga tushadi. API kalitlari zaxiraga kirmaydi |
+| **Takror buyurtmadan himoya** | Bir daqiqada ayni buyurtma takrorlansa mijozdan so'raladi — tasodifiy ikki marta bosishda pul ikki marta yechilmaydi |
+| **Yakunlanmagan to'lov eslatmasi** | Muddat tugashiga bir necha daqiqa qolganda mijozga karta raqami bilan eslatma boradi |
+| **`/api/health`** | Railway va tashqi kuzatuvchilar uchun holat uchi (baza, bot, adminlar soni) |
+
 ### Rasmlar
 
 Mahsulot muqovasi va paket rasmlari admin panelidan **telefondan tanlanadi**:
@@ -324,8 +338,8 @@ public/
   icons.js       Qo'lda chizilgan SVG ikonkalar to'plami
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
-  admin.js       Admin panel (12 bo'lim)
-test/run.js      87 ta integratsion test — npm test
+  admin.js       Admin panel (12 bo'lim, uch guruhga bo'lingan)
+test/run.js      100 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan

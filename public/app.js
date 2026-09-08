@@ -314,6 +314,7 @@
   }
 
   function viewHome() {
+    const c = S.config || {};
     const notice = S.config && pick(S.config.notice);
     const st = S.stats;
     const top = S.catalog.filter(i => !i.maint).slice(0, 6);
@@ -331,6 +332,8 @@
     return `
       ${balanceCard()}
 
+      ${c.closed ? `<div class="notice notice--stop">${ICO("alert", 15)}<span>
+        <b>${t("err.shop_closed")}</b>${c.closedNote ? " " + esc(c.closedNote) : ""}</span></div>` : ""}
       ${notice ? `<div class="notice">${ICO("info", 15)}<span>${esc(notice)}</span></div>` : ""}
 
       ${recent.length ? sect(t("home.again"), "", "refresh") + `<div class="strip">
