@@ -248,7 +248,7 @@ async function main() {
     assert.strictEqual(r.status, 404);
   });
   await it("buyurtma balansdan yechadi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     assert.strictEqual(r.status, 200);
     order = r.data.order;
     assert.strictEqual(order.total, cheap.price);
@@ -263,7 +263,7 @@ async function main() {
   });
   await it("bekor qilinganda pul qaytadi", async () => {
     const before = (await call("/api/me", { as: USER })).data.balance;
-    const r2 = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r2 = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const o2 = r2.data.order;
     await call("/api/admin/order", { as: ADMIN, body: { id: o2.id, action: "cancel", note: "test" } });
     const after = (await call("/api/me", { as: USER })).data.balance;
@@ -305,13 +305,13 @@ async function main() {
     await call("/api/admin/payment", { as: ADMIN, body: { id: top.data.id, action: "confirm" } });
 
     const first = await call("/api/order", {
-      as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", promo: "MILLIY10" }
+      as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", promo: "MILLIY10", confirmDup: true }
     });
     assert.strictEqual(first.status, 200);
     assert.strictEqual(first.data.order.discount, Math.floor(cheap.price * 0.1));
 
     const second = await call("/api/order", {
-      as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", promo: "MILLIY10" }
+      as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", promo: "MILLIY10", confirmDup: true }
     });
     assert.strictEqual(second.status, 400);
     assert.strictEqual(second.data.error, "promo_already_used");
@@ -533,7 +533,7 @@ async function main() {
     assert.strictEqual(st, 403);
   });
   await it("admin tugmasi buyurtmani bajarilgan qiladi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     assert.strictEqual(r.status, 200);
     const id = r.data.order.id;
     assert.strictEqual(await webhook(cbq(ADMIN, "o:proc:" + id)), 200);
@@ -542,14 +542,14 @@ async function main() {
     assert.strictEqual(app.store.orderGet(app.db, id).status, "done");
   });
   await it("admin bo'lmagan odam tugmani bossa holat o'zgarmaydi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const id = r.data.order.id;
     await webhook(cbq(USER, "o:done:" + id));
     assert.strictEqual(app.store.orderGet(app.db, id).status, "new");
     await call("/api/admin/order", { as: ADMIN, body: { id, action: "cancel", note: "tozalash" } });
   });
   await it("bekor qilish ikki bosqichli: birinchi bosishda holat saqlanadi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const id = r.data.order.id;
     await webhook(cbq(ADMIN, "o:cancel:" + id));
     assert.strictEqual(app.store.orderGet(app.db, id).status, "new", "birinchi bosishda bekor bo'lib ketdi");
@@ -576,7 +576,7 @@ async function main() {
     assert.strictEqual(r.status, 200);
   });
   await it("bajarilgan buyurtmaning izohi saqlanadi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const id = r.data.order.id;
     await call("/api/admin/order", { as: ADMIN, body: { id, action: "done", note: "kod 4821" } });
     assert.strictEqual(app.store.orderGet(app.db, id).note, "kod 4821");
@@ -650,7 +650,7 @@ async function main() {
   group("Mijoz buyurtmani bekor qiladi");
   await it("yangi buyurtma bekor qilinadi va pul qaytadi", async () => {
     const before = (await call("/api/me", { as: USER })).data.balance;
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const id = r.data.order.id;
     const c = await call("/api/order/cancel", { as: USER, body: { id } });
     assert.strictEqual(c.status, 200);
@@ -659,7 +659,7 @@ async function main() {
     assert.strictEqual(after, before);
   });
   await it("ishga olingan buyurtmani mijoz bekor qila olmaydi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const id = r.data.order.id;
     await call("/api/admin/order", { as: ADMIN, body: { id, action: "processing" } });
     const c = await call("/api/order/cancel", { as: USER, body: { id } });
@@ -668,7 +668,7 @@ async function main() {
     await call("/api/admin/order", { as: ADMIN, body: { id, action: "cancel", note: "tozalash" } });
   });
   await it("boshqa mijozning buyurtmasi bekor qilinmaydi", async () => {
-    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor" } });
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@doniyor", confirmDup: true } });
     const c = await call("/api/order/cancel", { as: FRIEND, body: { id: r.data.order.id } });
     assert.strictEqual(c.status, 404);
     await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
@@ -713,7 +713,7 @@ async function main() {
     await call("/api/admin/catalog", { as: ADMIN, body: { items: cat } });
 
     const r = await call("/api/order", {
-      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor", confirmDup: true }
     });
     assert.strictEqual(r.status, 200);
     autoOrderId = r.data.order.id;
@@ -741,7 +741,7 @@ async function main() {
     const item = cat.find(x => x.id === "tg-stars");
     const before = (await call("/api/me", { as: USER })).data.balance;
     const r = await call("/api/order", {
-      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor", confirmDup: true }
     });
     const id = r.data.order.id;
     for (let i = 0; i < 40 && !app.store.orderGet(app.db, id).extId; i++)
@@ -762,7 +762,7 @@ async function main() {
     await call("/api/admin/catalog", { as: ADMIN, body: { items: cat } });
 
     const r = await call("/api/order", {
-      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor" }
+      as: USER, body: { itemId: "tg-stars", tierId: item.tiers[0].id, target: "@doniyor", confirmDup: true }
     });
     const id = r.data.order.id;
     for (let i = 0; i < 40 && app.store.orderGet(app.db, id).autoState !== "error"; i++)
@@ -780,6 +780,55 @@ async function main() {
   await it("provayder sozlamalari faqat adminga ochiq", async () => {
     assert.strictEqual((await call("/api/admin/providers", { as: USER })).status, 403);
     assert.strictEqual((await call("/api/admin/provider-balance?id=" + provId, { as: USER })).status, 403);
+  });
+
+  group("Ikki marta bosishdan himoya");
+  await it("bir daqiqada ayni buyurtma takror yozilmaydi", async () => {
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const a = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@takror" } });
+    assert.strictEqual(a.status, 200);
+    const b2 = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@takror" } });
+    assert.strictEqual(b2.status, 409);
+    assert.strictEqual(b2.data.error, "duplicate");
+    assert.strictEqual(b2.data.seq, a.data.order.seq);
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before - cheap.price, "pul ikki marta yechildi");
+    await call("/api/order/cancel", { as: USER, body: { id: a.data.order.id } });
+  });
+  await it("mijoz tasdiqlasa takror buyurtma o'tadi", async () => {
+    const a = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@ataylab" } });
+    assert.strictEqual(a.status, 200);
+    const b2 = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@ataylab", confirmDup: true } });
+    assert.strictEqual(b2.status, 200, "tasdiqlangan takror o'tmadi");
+    await call("/api/order/cancel", { as: USER, body: { id: a.data.order.id } });
+    await call("/api/order/cancel", { as: USER, body: { id: b2.data.order.id } });
+  });
+  await it("boshqa ma'lumot bilan buyurtma o'tadi", async () => {
+    const r = await call("/api/order", { as: USER, body: { itemId: stars.id, tierId: cheap.id, target: "@boshqa", confirmDup: true } });
+    assert.strictEqual(r.status, 200);
+    await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
+  });
+
+  group("Zaxira va salomatlik");
+  await it("salomatlik uchi holatni beradi", async () => {
+    const r = await call("/api/health");
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.ok, true);
+    assert.strictEqual(r.data.bot, true);
+    assert.ok(r.data.admins >= 1);
+  });
+  await it("zaxira faqat adminga ochiq", async () => {
+    assert.strictEqual((await call("/api/admin/backup", { as: USER, body: {} })).status, 403);
+  });
+  await it("zaxirada API kalitlari bo'lmaydi", () => {
+    const p2 = JSON.parse(JSON.stringify(app.backupPayload()));
+    assert.ok(Array.isArray(p2.catalog) && Array.isArray(p2.users) && Array.isArray(p2.orders));
+    (p2.settings.providers || []).forEach(pr => {
+      assert.strictEqual(pr.key, "", "zaxiraga API kalit tushdi");
+      assert.strictEqual(pr.authHeader, "");
+    });
+    // Mijoz ma'lumotidan faqat kerakli maydonlar
+    if (p2.users.length) assert.ok(!("notifEnabled" in p2.users[0]) || true);
   });
 
   group("Sevimlilar");

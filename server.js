@@ -132,7 +132,9 @@ function saveDataImage(dataUrl) {
 
 function cfg(key) {
   const v = store.setGet(db, key, null);
-  return v === null ? JSON.parse(JSON.stringify(DEFAULTS[key])) : v;
+  if (v !== null) return v;
+  // Noma'lum kalit so'ralsa qulab tushmasin: DEFAULTS'da yo'q bo'lsa null.
+  return DEFAULTS[key] === undefined ? null : JSON.parse(JSON.stringify(DEFAULTS[key]));
 }
 function cfgPut(key, value) { store.setPut(db, key, value); }
 
@@ -329,9 +331,11 @@ function tgSendDocument(chatId, buffer, filename, caption) {
     const boundary = "----MilliyPin" + crypto.randomBytes(12).toString("hex");
     const part = (name, value) =>
       Buffer.from("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + name + "\"\r\n\r\n" + value + "\r\n");
+    const mime = /\.json$/i.test(filename) ? "application/json"
+      : /\.csv$/i.test(filename) ? "text/csv" : "application/octet-stream";
     const fileHead = Buffer.from("--" + boundary +
       "\r\nContent-Disposition: form-data; name=\"document\"; filename=\"" + filename + "\"" +
-      "\r\nContent-Type: text/csv\r\n\r\n");
+      "\r\nContent-Type: " + mime + "\r\n\r\n");
     const body = Buffer.concat([
       part("chat_id", String(chatId)),
       caption ? part("caption", caption) : Buffer.alloc(0),
@@ -727,6 +731,22 @@ route("GET", "/api/config", (req, res) => {
 
 // Katalog javobi 60 soniya keshlanadi: sharh o'rtachasini hisoblash uchun
 // har so'rovda minglab sharhni qayta sanash shart emas.
+/* Salomatlik tekshiruvi — Railway va tashqi kuzatuvchilar (UptimeRobot va
+   h.k.) uchun. Maxfiy ma'lumot chiqmaydi. */
+const BOOT_AT = Date.now();
+route("GET", "/api/health", (req, res) => {
+  let dbOk = true;
+  try { store.usersAll(db); } catch (e) { dbOk = false; }
+  send(res, dbOk ? 200 : 503, {
+    ok: dbOk,
+    uptime: Math.round((Date.now() - BOOT_AT) / 1000),
+    bot: !!BOT_TOKEN,
+    webhookSecret: !!WEBHOOK_SECRET,
+    admins: ADMIN_IDS.length,
+    version: 2
+  });
+});
+
 route("GET", "/api/catalog", (req, res) => sendEtag(req, res, cached("catalog", publicCatalog)));
 
 route("GET", "/api/reviews", (req, res) => {
@@ -995,6 +1015,16 @@ route("POST", "/api/order", (req, res) => {
     const total = Math.max(0, subtotal - discount);
     if (num(acc.balance) < total) return send(res, 400, { error: "insufficient", need: total - num(acc.balance) });
 
+    // Ikki marta bosishdan himoya. Mijoz ataylab ikkinchi paketni olishi ham
+    // mumkin, shuning uchun butunlay bloklamaymiz: birinchi urinishda so'raymiz
+    // ("hozirgina shunday buyurtma berdingiz"), mijoz tasdiqlasa o'tkazamiz.
+    if (!b.confirmDup) {
+      const twin = store.ordersByUser(db, acc.id, 10).find(o2 =>
+        o2.itemId === item.id && o2.tierId === tier.id && o2.target === target &&
+        o2.status !== "canceled" && now() - num(o2.ts) < 60 * 1000);
+      if (twin) return send(res, 409, { error: "duplicate", orderId: twin.id, seq: twin.seq });
+    }
+
     balanceAdd(acc.id, -total, "order");
     if (promo) consumePromo(promo, acc.id);
 
@@ -1122,6 +1152,12 @@ route("GET", "/api/admin/dashboard", (req, res) => {
       weekly: users.filter(u => num(u.createdAt) >= periodStart("week")).length
     },
     activeUsers: Object.keys(lastOrderOf).filter(uid => lastOrderOf[uid] >= nowTs - 30 * DAY).length,
+    // Umumiy ko'rsatkichlar menyudan bu yerga ko'chirildi: ular kunlik ish emas,
+    // tahlil uchun kerak.
+    totals: {
+      users: users.length,
+      balances: users.reduce((a, u) => a + num(u.balance), 0)
+    },
     // 30+ kundan beri xarid qilmagan, lekin ilgari pul sarflagan mijozlar —
     // ularga chegirma yuborish eng foydali "qaytarish" usuli.
     churn: users
@@ -1632,6 +1668,96 @@ route("POST", "/api/admin/export", (req, res) => {
   });
 });
 
+/* ═══════════════ Yakunlanmagan to'lov eslatmasi ═══════════════
+   Mijoz summa olib, o'tkazmani qilmasdan ilovadan chiqib ketishi juda ko'p
+   uchraydi. Muddati tugashiga bir necha daqiqa qolganda bir marta eslatma
+   yuboriladi — bu yo'qolgan xaridni qaytaradi. Har to'lovga faqat bitta
+   eslatma (remindedAt) va bildirishnomani o'chirganlarga yuborilmaydi. */
+function remindUnfinished() {
+  const nowTs = now();
+  store.paymentsByStatus(db, "pending", 200).forEach(p => {
+    if (p.claimedAt || p.remindedAt) return;
+    const left = num(p.expiresAt) - nowTs;
+    if (left <= 0 || left > 6 * 60 * 1000) return;   // faqat oxirgi 6 daqiqada
+    if (nowTs - num(p.ts) < 3 * 60 * 1000) return;   // hozirgina boshlagan bo'lsa tegmaymiz
+    p.remindedAt = nowTs;
+    store.paymentPut(db, p);
+    tgSend(p.uid, [
+      "⏳ <b>To'lov yakunlanmadi</b>",
+      "",
+      "Kartaga <b>" + MONEY(p.amount) + "</b> o'tkazishingiz kutilmoqda.",
+      "Karta: " + esc(p.cardType) + " <code>" + esc(p.cardNumber) + "</code>",
+      "",
+      "O'tkazgan bo'lsangiz ilovada «To'lov qildim» tugmasini bosing —",
+      "aks holda summa bekor bo'ladi."
+    ].join("\n"));
+  });
+}
+setInterval(remindUnfinished, 2 * 60 * 1000).unref();
+
+/* ═══════════════ Zaxira nusxa ═══════════════
+   Baza faylini emas, ma'lumotning o'zini JSON qilib adminning shaxsiy chatiga
+   yuboramiz: shunda zaxira Telegramda saqlanadi va uni istalgan vaqtda
+   qaytadan yuklash mumkin. Kalitlar (API tokenlari) zaxiraga tushmaydi. */
+
+function backupPayload() {
+  const cleanProviders = (cfg("providers") || []).map(p =>
+    Object.assign({}, p, { key: "", authHeader: "" }));
+  return {
+    version: 1,
+    at: new Date().toISOString(),
+    catalog: store.productsAll(db, false),
+    settings: {
+      shop: cfg("shop"), cards: cfg("cards"), channels: cfg("channels"),
+      referral: cfg("referral"), loyalty: cfg("loyalty"),
+      links: cfg("links"), socials: cfg("socials"), faq: cfg("faq"),
+      about: cfg("about"), providers: cleanProviders
+    },
+    promos: store.promosAll(db),
+    users: store.usersAll(db).map(u => ({
+      id: u.id, username: u.username, firstName: u.firstName,
+      balance: num(u.balance), spent: num(u.spent), createdAt: u.createdAt,
+      blocked: !!u.blocked, refBy: u.refBy || "", refEarned: num(u.refEarned)
+    })),
+    orders: store.ordersByStatus(db, null, 20000),
+    payments: ["pending", "confirmed", "rejected", "expired"]
+      .flatMap(st => store.paymentsByStatus(db, st, 5000))
+  };
+}
+
+async function sendBackup(chatId) {
+  const data = backupPayload();
+  const buf = Buffer.from(JSON.stringify(data), "utf8");
+  const name = "milliypin-zaxira-" + new Date().toISOString().slice(0, 10) + ".json";
+  const r = await tgSendDocument(chatId, buf, name,
+    "🗄 Zaxira nusxa\n" +
+    "Mahsulot: " + data.catalog.length + " · Mijoz: " + data.users.length +
+    " · Buyurtma: " + data.orders.length + " · To'lov: " + data.payments.length +
+    "\nHajmi: " + (buf.length / 1024).toFixed(0) + " KB");
+  return { ok: !!(r && r.ok), size: buf.length, error: r && r.description };
+}
+
+route("POST", "/api/admin/backup", (req, res) => {
+  const admin = requireAdmin(req, res);
+  if (!admin) return;
+  readBody(req, res, async () => {
+    const r = await sendBackup(cfg("channels").log || admin.id);
+    send(res, r.ok ? 200 : 400, r);
+  });
+});
+
+// Har kuni bir marta avtomatik zaxira — do'kon egasi unutib qo'ysa ham
+// ma'lumot Telegramda qoladi. Vaqt: har kuni 03:00 (server vaqti).
+let lastBackupDay = "";
+setInterval(() => {
+  const now2 = new Date();
+  const day = now2.toISOString().slice(0, 10);
+  if (now2.getHours() !== 3 || lastBackupDay === day) return;
+  lastBackupDay = day;
+  const target = cfg("channels").log || ADMIN_IDS[0];
+  if (target) sendBackup(target).catch(e => console.log("[zaxira]", String((e && e.message) || e)));
+}, 10 * 60 * 1000).unref();
+
 /* ═══════════════ Telegram webhook (bot) ═══════════════ */
 
 function botStartText(name) {
@@ -1866,4 +1992,4 @@ function shutdown(signal) {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
-module.exports = { server, parseSmsAmount, checkInitData, validatePromo, loyaltyTier, db, store };
+module.exports = { server, parseSmsAmount, checkInitData, validatePromo, loyaltyTier, backupPayload, db, store };

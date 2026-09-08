@@ -1099,15 +1099,17 @@
     if (b) b.onclick = submitOrder;
   }
 
-  async function submitOrder() {
+  async function submitOrder(confirmDup) {
     const target = el("target").value.trim();
     if (target.length < 2) { toast(t("err.target"), "err"); el("target").focus(); return; }
     const b = el("buyBtn");
+    const restore = () => { b.disabled = false; b.innerHTML = ICO("check") + t("prod.buy"); };
     b.disabled = true; b.textContent = t("common.loading");
     try {
       const r = await api("/api/order", {
         body: { itemId: O.item.id, tierId: O.tierId, qty: 1, target,
-                comment: el("comment").value.trim(), promo: O.promo }
+                comment: el("comment").value.trim(), promo: O.promo,
+                confirmDup: !!confirmDup }
       });
       closeSheet();
       toast(t("ok.ordered") + " #" + r.order.seq, "ok");
@@ -1115,8 +1117,19 @@
       await loadMe();
       go("orders");
     } catch (e) {
+      // Xuddi shunday buyurtma hozirgina berilgan — tasodifiy ikki marta
+      // bosishmi yoki ataylabmi, mijozning o'zidan so'raymiz.
+      if (e.code === "duplicate") {
+        restore();
+        const yes = await window.mpConfirm(t("err.duplicate"), {
+          text: t("prod.dupHint", { p: e.data && e.data.seq }),
+          yes: t("prod.dupYes"), danger: false
+        });
+        if (yes) return submitOrder(true);
+        return;
+      }
       toast(errText(e), "err");
-      b.disabled = false; b.innerHTML = ICO("check") + t("prod.buy");
+      restore();
     }
   }
 

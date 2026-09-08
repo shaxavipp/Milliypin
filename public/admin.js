@@ -173,17 +173,26 @@
   ];
 
   // Menyu tugmalari — ikki ustunli to'r. `badge` — diqqat talab qiladigan son.
-  const MENU = [
-    { id: "orders",   ic: "scroll",    label: "Buyurtmalar", badge: d => d.pendingOrders + d.processingOrders },
-    { id: "payments", ic: "card",      label: "To'lovlar",   badge: d => d.pendingPayments },
-    { id: "users",    ic: "users",     label: "Mijozlar" },
-    { id: "catalog",  ic: "box",       label: "Katalog" },
-    { id: "promo",    ic: "tag",       label: "Promokodlar" },
-    { id: "reviews",  ic: "star",      label: "Sharhlar" },
-    { id: "dash",     ic: "chart",     label: "Tahlil" },
-    { id: "autop",    ic: "bolt",      label: "Avtomatika" },
-    { id: "settings", ic: "cog",       label: "Sozlamalar" },
-    { id: "cast",     ic: "megaphone", label: "Tarqatma" }
+  // Bo'limlar uch guruhga bo'lingan: har kungi ish, do'kon va sozlash.
+  // Ilgari hammasi bir xil o'n ikkita plita edi — nima muhimligi bilinmasdi.
+  const GROUPS = [
+    { title: "Har kungi ish", items: [
+      { id: "orders",   ic: "scroll", label: "Buyurtmalar", badge: d => d.pendingOrders + d.processingOrders },
+      { id: "payments", ic: "card",   label: "To'lovlar",   badge: d => d.pendingPayments },
+      { id: "users",    ic: "users",  label: "Mijozlar" },
+      { id: "reviews",  ic: "star",   label: "Sharhlar" }
+    ]},
+    { title: "Do'kon", items: [
+      { id: "catalog", ic: "box",   label: "Katalog" },
+      { id: "promo",   ic: "tag",   label: "Promokodlar" },
+      { id: "autop",   ic: "bolt",  label: "Avtomatika" },
+      { id: "dash",    ic: "chart", label: "Tahlil" }
+    ]},
+    { title: "Sozlash", items: [
+      { id: "settings", ic: "cog",       label: "Sozlamalar" },
+      { id: "cast",     ic: "megaphone", label: "Tarqatma" },
+      { id: "backup",   ic: "download",  label: "Zaxira" }
+    ]}
   ];
 
   async function scrMenu() {
@@ -191,7 +200,18 @@
     const open = d.pendingOrders + d.processingOrders + d.pendingPayments;
 
     body(`
-      <div class="lb-period" id="pSeg">
+      <button class="admhero ${open ? "hot" : ""}" data-go="money">
+        <span class="admhero-ic">${ICO(open ? "alert" : "check", 20)}</span>
+        <span class="admhero-b">
+          <span class="admhero-t">${open ? "Kutayotgan ish: " + open + " ta" : "Hammasi bajarilgan"}</span>
+          <span class="admhero-s">${open
+            ? d.pendingPayments + " to'lov · " + (d.pendingOrders + d.processingOrders) + " buyurtma"
+            : "Yangi to'lov va buyurtma yo'q"}</span>
+        </span>
+        ${ICO("chevron", 16)}
+      </button>
+
+      <div class="lb-period" id="pSeg" style="margin-top:12px">
         ${PERIODS.map(p => `<button data-p="${p.id}" class="${p.id === A.period ? "on" : ""}">${p.label}</button>`).join("")}
       </div>
 
@@ -200,47 +220,23 @@
         <div class="kpi-b"><div class="kpi-v">${money(d.topups)}</div><div class="kpi-k">To'ldirildi</div></div>
         <div class="kpi-b"><div class="kpi-v">${money(d.orders)}</div><div class="kpi-k">Bajarilgan buyurtma</div></div>
         <div class="kpi-b"><div class="kpi-v">${money(d.usersNew)}</div><div class="kpi-k">Yangi mijoz</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.users)}</div><div class="kpi-k">Jami mijoz</div></div>
-        <div class="kpi-b"><div class="kpi-v">${money(d.balances)}</div><div class="kpi-k">Balanslar yig'indisi</div></div>
       </div>
 
-      <button class="admhero ${open ? "hot" : ""}" data-go="money">
-        <span class="admhero-ic">${ICO("wallet", 20)}</span>
-        <span class="admhero-b">
-          <span class="admhero-t">Moliya — to'lov va buyurtmalar</span>
-          <span class="admhero-s">${open
-            ? d.pendingPayments + " to'lov · " + (d.pendingOrders + d.processingOrders) + " buyurtma kutmoqda"
-            : "Kutayotgan ish yo'q"}</span>
-        </span>
-        ${ICO("chevron", 16)}
-      </button>
+      ${GROUPS.map(g => `
+        <div class="sect"><h3>${g.title}</h3></div>
+        <div class="admgrid">
+          ${g.items.map(m => {
+            const n = m.badge ? m.badge(d) : 0;
+            return `<button class="admtile" data-go="${m.id}">
+              ${n ? `<span class="admtile-badge">${n}</span>` : ""}
+              ${ICO(m.ic, 20)}
+              <span class="admtile-t">${m.label}</span>
+            </button>`;
+          }).join("")}
+        </div>`).join("")}
 
-      <div class="sect"><h3>Bo'limlar</h3></div>
-      <div class="admgrid">
-        ${MENU.map(m => {
-          const n = m.badge ? m.badge(d) : 0;
-          return `<button class="admtile" data-go="${m.id}">
-            ${n ? `<span class="admtile-badge">${n}</span>` : ""}
-            ${ICO(m.ic, 20)}
-            <span class="admtile-t">${m.label}</span>
-          </button>`;
-        }).join("")}
-      </div>
-
-      ${d.top && d.top.length ? `
-        <div class="sect"><h3>Eng ko'p sotilgan</h3></div>
-        <div class="rows" style="padding:0">
-          ${d.top.map((x, i) => `<div class="row">
-            <span class="row-ic">${i + 1}</span>
-            <span class="row-b"><span class="row-t">${esc(x.title)}</span></span>
-            <span class="row-e"><span class="row-p">${x.n}</span></span>
-          </div>`).join("")}
-        </div>` : ""}
-
-      <div class="admgrid" style="margin-top:11px">
-        <button class="admtile" data-go="backup">${ICO("download", 20)}<span class="admtile-t">Zaxira / JSON</span></button>
-        <button class="admtile" id="admExport">${ICO("send", 20)}<span class="admtile-t">CSV Telegramga</span></button>
-      </div>`);
+      <button class="btn btn--line btn-w" id="admExport" style="margin-top:14px">
+        ${ICO("send", 15)}Buyurtmalar hisobotini Telegramga yuborish</button>`);
 
     el("pSeg").addEventListener("click", e => {
       const b = e.target.closest("[data-p]");
@@ -1242,6 +1238,8 @@
         <div class="kpi-b"><div class="kpi-v">${d.newUsers.daily}</div><div class="kpi-k">Bugungi yangi mijoz</div></div>
         <div class="kpi-b"><div class="kpi-v">${d.newUsers.weekly}</div><div class="kpi-k">Haftalik yangi mijoz</div></div>
         <div class="kpi-b"><div class="kpi-v">${d.activeUsers}</div><div class="kpi-k">30 kunda faol</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.totals.users)}</div><div class="kpi-k">Jami mijoz</div></div>
+        <div class="kpi-b"><div class="kpi-v">${money(d.totals.balances)}</div><div class="kpi-k">Balanslar yig'indisi</div></div>
       </div>
 
       <div class="sect"><h3>30 kunlik savdo</h3></div>
@@ -1303,7 +1301,12 @@
     const list = await api("/api/admin/catalog");
     const json = JSON.stringify(list);
     body(`${backBar()}
-      <div class="sect sect--first"><h3>Katalogni eksport qilish</h3></div>
+      <div class="sect sect--first"><h3>To'liq zaxira</h3></div>
+      <div class="hint">${ICO("info", 13)}<span>Katalog, sozlamalar, mijozlar, buyurtmalar va to'lovlar bitta JSON faylga yig'ilib, Telegramga yuboriladi. API kalitlari zaxiraga tushmaydi. <b>Har kuni 03:00 da avtomatik</b> ham yuboriladi.</span></div>
+      <button class="btn btn--acc btn-w" id="bkNow" style="margin-top:9px">${ICO("download", 15)}Zaxirani hozir yuborish</button>
+      <div class="tiny mut" id="bkOut" style="margin-top:7px"></div>
+
+      <div class="sect"><h3>Katalogni eksport qilish</h3></div>
       <div class="hint">${ICO("info", 13)}<span>Shu JSON'ni nusxalab saqlang — kerak bo'lganda qaytadan import qilasiz.</span></div>
       <textarea class="textarea code" id="expBox" readonly style="min-height:110px;margin-top:9px">${esc(json)}</textarea>
       <button class="btn btn--line btn-w" id="expCopy" style="margin-top:9px">${ICO("copy", 14)}JSON nusxalash</button>
@@ -1314,6 +1317,19 @@
       <button class="btn btn--danger btn-w" id="impBtn" style="margin-top:9px">${ICO("download", 14)}Katalogni import qilish</button>
 
       <div class="tiny mut center" style="margin-top:14px">Mahsulot: ${list.length} ta · ${(json.length / 1024).toFixed(1)} KB</div>`);
+
+    el("bkNow").onclick = async () => {
+      const b = el("bkNow"), out = el("bkOut");
+      b.disabled = true; out.textContent = "Tayyorlanmoqda...";
+      try {
+        const r = await api("/api/admin/backup", { body: {} });
+        out.innerHTML = `<span class="okline">Yuborildi · ${(r.size / 1024).toFixed(0)} KB</span>`;
+        toast("Zaxira Telegramga yuborildi", "ok");
+      } catch (e) {
+        out.innerHTML = `<span class="errline">${esc(errText(e))}</span>`;
+      }
+      b.disabled = false;
+    };
 
     el("expCopy").onclick = () => window.mpCopy(json);
     el("impBtn").onclick = async () => {
