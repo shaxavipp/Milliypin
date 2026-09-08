@@ -339,7 +339,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (12 bo'lim, uch guruhga bo'lingan)
-test/run.js      100 ta integratsion test — npm test
+test/run.js      102 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -384,6 +384,11 @@ Top donaterlar reytingi, texnik ishdagi mahsulotni sotib bo'lmasligi va sharh bo
 
 ## Ishlash
 
+- Admin ko'rsatkichlari (`/api/admin/overview`) va katalog 60 soniya keshlanadi;
+  sozlama, katalog yoki sharh o'zgarganda kesh darhol tozalanadi
+- Har foydalanuvchi uchun so'rov chastotasi cheklangan (buyurtma 60/daqiqa,
+  to'ldirish 20, sharh 20, promokod 40) — imzo to'g'ri bo'lsa ham skript bilan
+  serverni ko'mib tashlab bo'lmaydi
 - `/api/stats` va `/api/leaderboard` natijasi 60 soniya keshlanadi — ilova ochilganda
   minglab buyurtma qayta-qayta skanerlanmaydi (buyurtma bajarilganda kesh darhol tozalanadi).
 - Katalog va sozlamalar `ETag` bilan beriladi: o'zgarmagan bo'lsa `304` qaytadi.

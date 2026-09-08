@@ -901,6 +901,21 @@ async function main() {
     assert.strictEqual(r.data.setup.webhook, true);
   });
 
+  group("So'rov chastotasi");
+  await it("juda tez-tez sharh yuborilsa to'xtatiladi", async () => {
+    // Sharh chegarasi 20/daqiqa — 25 marta urinib ko'ramiz
+    let limited = 0;
+    for (let i = 0; i < 25; i++) {
+      const r = await call("/api/review", { as: FRIEND, body: { orderId: "yo-q", stars: 5 } });
+      if (r.status === 429) { limited++; assert.ok(r.data.retryAfter >= 0); }
+    }
+    assert.ok(limited > 0, "chegara ishlamadi");
+  });
+  await it("chegara har foydalanuvchi uchun alohida", async () => {
+    const r = await call("/api/review", { as: USER, body: { orderId: "yo-q", stars: 5 } });
+    assert.notStrictEqual(r.status, 429, "boshqa mijoz ham to'silib qoldi");
+  });
+
   group("Sevimlilar");
   await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
     const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });

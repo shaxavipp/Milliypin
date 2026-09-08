@@ -707,6 +707,40 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+/* ═══════════════ So'rov chastotasi ═══════════════
+   Oddiy siljiydigan oyna: bir foydalanuvchi belgilangan vaqtda nechta amal
+   bajarganini sanaydi. Maqsad — imzosi to'g'ri bo'lsa ham skript bilan
+   serverni ko'mib tashlashning oldini olish. Chegaralar odam uchun yetarlicha
+   keng, faqat avtomatlashtirilgan hujumni to'sadi. */
+const _hits = new Map();
+function rateOk(key, limit, windowMs) {
+  const nowTs = now();
+  const arr = (_hits.get(key) || []).filter(t2 => nowTs - t2 < windowMs);
+  if (arr.length >= limit) {
+    _hits.set(key, arr);
+    return { ok: false, retryAfter: Math.ceil((windowMs - (nowTs - arr[0])) / 1000) };
+  }
+  arr.push(nowTs);
+  _hits.set(key, arr);
+  return { ok: true };
+}
+// Eskirgan yozuvlarni tozalash — xotira o'smasin
+setInterval(() => {
+  const nowTs = now();
+  _hits.forEach((arr, k) => {
+    const live = arr.filter(t2 => nowTs - t2 < 5 * 60 * 1000);
+    if (live.length) _hits.set(k, live); else _hits.delete(k);
+  });
+}, 5 * 60 * 1000).unref();
+
+// Marshrut ichida ishlatiladi: chegara oshsa 429 qaytaradi va true beradi.
+function tooFast(res, uid, action, limit) {
+  const r = rateOk(action + ":" + uid, limit, 60 * 1000);
+  if (r.ok) return false;
+  send(res, 429, { error: "too_fast", retryAfter: r.retryAfter });
+  return true;
+}
+
 /* ═══════════════ Marshrutlar ═══════════════ */
 
 const routes = {};
@@ -932,6 +966,7 @@ route("POST", "/api/notif", (req, res) => {
 
 route("POST", "/api/promo/check", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
+  if (tooFast(res, u.id, "promo", 40)) return;
   readBody(req, res, b => {
     const acc = account(u);
     const r = validatePromo(str(b.code, 32).toUpperCase(), acc, clampInt(b.subtotal, 0, 1e9));
@@ -941,6 +976,7 @@ route("POST", "/api/promo/check", (req, res) => {
 
 route("POST", "/api/topup", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
+  if (tooFast(res, u.id, "topup", 20)) return;
   readBody(req, res, b => {
     const acc = account(u);
     if (acc.blocked) return send(res, 403, { error: "blocked" });
@@ -996,6 +1032,7 @@ route("POST", "/api/topup/cancel", (req, res) => {
 
 route("POST", "/api/order", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
+  if (tooFast(res, u.id, "order", 60)) return;
   readBody(req, res, b => {
     const acc = account(u);
     if (acc.blocked) return send(res, 403, { error: "blocked" });
@@ -1065,6 +1102,7 @@ route("POST", "/api/order", (req, res) => {
 
 route("POST", "/api/review", (req, res) => {
   const u = requireUser(req, res); if (!u) return;
+  if (tooFast(res, u.id, "review", 20)) return;
   readBody(req, res, b => {
     const acc = account(u);
     const o = store.orderGet(db, str(b.orderId, 40));
@@ -1090,6 +1128,12 @@ route("GET", "/api/admin/overview", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const q = new URLSearchParams(url.parse(req.url).query || "");
   const period = ["today", "week", "month", "all"].includes(q.get("period")) ? q.get("period") : "today";
+  // Ko'rsatkichlar 30 soniya keshlanadi: admin davrni bosib-bosib
+  // ko'rganda ham baza qayta-qayta skanerlanmaydi.
+  return send(res, 200, cached("ov:" + period, () => overviewData(period)));
+});
+
+function overviewData(period) {
   const cutoff = periodStart(period);
 
   const orders = store.ordersByStatus(db, null, 20000);
@@ -1098,7 +1142,7 @@ route("GET", "/api/admin/overview", (req, res) => {
   const users = store.usersAll(db);
   const payIn = store.paymentsByStatus(db, "confirmed", 20000).filter(p => p.ts >= cutoff);
 
-  send(res, 200, {
+  return {
     period,
     users: users.length,
     usersNew: users.filter(u => num(u.createdAt) >= cutoff).length,
@@ -1123,8 +1167,8 @@ route("GET", "/api/admin/overview", (req, res) => {
       catalog: store.productsAll(db, true).length > 0,
       closed: !!cfg("shop").closed
     }
-  });
-});
+  };
+}
 
 /* Tahlil ekrani: 30 kunlik savdo egri chizig'i, eng ko'p sotilganlar, yangi
    va qaytmagan mijozlar. Do'kon egasi bir qarashda o'sish yoki pasayishni
@@ -1623,6 +1667,7 @@ route("POST", "/api/admin/settings", (req, res) => {
         name: str(t.name, 30), minSpent: clampInt(t.minSpent, 0, 1e9), percent: clampInt(t.percent, 0, 30)
       })).filter(t => t.name)
     });
+    cacheClear();
     send(res, 200, { ok: true });
   });
 });
