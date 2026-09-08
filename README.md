@@ -340,7 +340,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (12 bo'lim, uch guruhga bo'lingan)
-test/run.js      108 ta integratsion test — npm test
+test/run.js      117 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan
@@ -380,6 +380,10 @@ Top donaterlar reytingi, texnik ishdagi mahsulotni sotib bo'lmasligi va sharh bo
   Bunday holatda admin balansni qo'lda to'g'irlaydi, shunda hisob buzilmaydi.
 - Admin kiritgan havolalar `http(s)` yoki `tg` sxemasida bo'lishi tekshiriladi.
 - Bloklangan mijoz na buyurtma bera oladi, na balans to'ldira oladi.
+- Pul yo'llari **buzishga urinish testlari** bilan qopqoqlangan: mijoz yuborgan
+  narx/chegirma qabul qilinmaydi, manfiy va cheksiz summa rad etiladi, manfiy
+  miqdor balansni oshirmaydi, boshqa mijozning to'lovi ochilmaydi, promokod
+  chegirmasi buyurtma summasidan oshmaydi.
 - Kanaldagi tugmalarni faqat `ADMIN_IDS` dagi akkauntlar bosa oladi va callback
   faqat to'g'ri `secret_token` bilan kelgan bo'lsa qabul qilinadi.
 

@@ -1013,6 +1013,86 @@ async function main() {
     assert.strictEqual(none.data.length, 0);
   });
 
+  group("Buzishga urinishlar (pul yo'llari)");
+  await it("mijoz narxni o'zi yubora olmaydi", async () => {
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const r = await call("/api/order", { as: USER, body: {
+      itemId: stars.id, tierId: cheap.id, target: "@hack1", confirmDup: true,
+      total: 1, subtotal: 1, price: 1, discount: 999999
+    }});
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.order.total, cheap.price, "mijoz yuborgan narx qabul qilindi");
+    assert.strictEqual(r.data.order.discount, 0, "mijoz yuborgan chegirma qabul qilindi");
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before - cheap.price);
+    await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
+  });
+  await it("manfiy va nol summa bilan to'ldirib bo'lmaydi", async () => {
+    for (const amount of [-100000, 0, -1]) {
+      const r = await call("/api/topup", { as: FRIEND, body: { amount } });
+      assert.strictEqual(r.status, 400, "summa " + amount + " qabul qilindi");
+    }
+  });
+  await it("juda katta summa cheklanadi", async () => {
+    const r = await call("/api/topup", { as: FRIEND, body: { amount: 1e15 } });
+    if (r.status === 200) {
+      assert.ok(r.data.base <= 100000000, "cheksiz summa o'tdi: " + r.data.base);
+      await call("/api/topup/cancel", { as: FRIEND, body: { id: r.data.id } });
+    } else {
+      assert.strictEqual(r.status, 400);
+    }
+  });
+  await it("manfiy miqdor bilan buyurtma balansni oshirmaydi", async () => {
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const r = await call("/api/order", { as: USER, body: {
+      itemId: stars.id, tierId: cheap.id, target: "@hack2", qty: -5, confirmDup: true
+    }});
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.ok(after <= before, "balans oshib ketdi");
+    if (r.status === 200) await call("/api/order/cancel", { as: USER, body: { id: r.data.order.id } });
+  });
+  await it("boshqa mijozning to'lovini tasdiqlab bo'lmaydi", async () => {
+    const top = await call("/api/topup", { as: FRIEND, body: { amount: 50000 } });
+    assert.strictEqual(top.status, 200);
+    const r = await call("/api/topup/paid", { as: USER, body: { id: top.data.id } });
+    assert.strictEqual(r.status, 404, "boshqa mijozning to'lovi ochildi");
+    await call("/api/topup/cancel", { as: FRIEND, body: { id: top.data.id } });
+  });
+  await it("mijoz o'z balansini to'g'ridan-to'g'ri o'zgartira olmaydi", async () => {
+    const before = (await call("/api/me", { as: USER })).data.balance;
+    const r = await call("/api/admin/user", { as: USER, body: {
+      id: String(USER_ID), action: "balance", delta: 9999999
+    }});
+    assert.strictEqual(r.status, 403);
+    const after = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(after, before);
+  });
+  await it("promokod chegirmasi buyurtma summasidan oshmaydi", async () => {
+    const list = (await call("/api/admin/promos", { as: ADMIN })).data
+      || (await call("/api/admin/settings", { as: ADMIN })).data.promos;
+    // Juda katta fixed chegirmali kod yaratamiz
+    await call("/api/admin/promo", { as: ADMIN, body: {
+      action: "save", code: "KATTA", type: "fixed", value: 99999999, limit: 0, minOrder: 0, active: true, public: false
+    }});
+    const r = await call("/api/promo/check", { as: FRIEND, body: { code: "KATTA", subtotal: 10000 } });
+    if (r.status === 200) assert.ok(r.data.discount <= 10000, "chegirma summadan oshdi: " + r.data.discount);
+    await call("/api/admin/promo", { as: ADMIN, body: { action: "delete", code: "KATTA" } });
+  });
+  await it("mavjud bo'lmagan paket bilan buyurtma o'tmaydi", async () => {
+    const r = await call("/api/order", { as: USER, body: {
+      itemId: stars.id, tierId: "yo-q-bunday", target: "@hack3", confirmDup: true
+    }});
+    assert.strictEqual(r.status, 404);
+  });
+  await it("bloklangan mijoz buyurtma bera olmaydi", async () => {
+    await call("/api/admin/user", { as: ADMIN, body: { id: String(REF_ID), action: "block", blocked: true } });
+    const r = await call("/api/order", { as: FRIEND, body: {
+      itemId: stars.id, tierId: cheap.id, target: "@hack4", confirmDup: true
+    }});
+    assert.strictEqual(r.status, 403);
+    await call("/api/admin/user", { as: ADMIN, body: { id: String(REF_ID), action: "block", blocked: false } });
+  });
+
   group("Statistika");
   await it("/api/stats haqiqiy sonlarni beradi", async () => {
     const r = await call("/api/stats");
