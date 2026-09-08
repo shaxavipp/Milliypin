@@ -239,6 +239,7 @@ almashtiriladi.
 | **Do'konni vaqtincha yopish** | Sozlamalardagi kalit. Yopilganda mijozlar katalogni ko'radi, ammo buyurtma bera olmaydi; sabab bosh sahifada ko'rsatiladi |
 | **Narxlarni ommaviy o'zgartirish** | Kurs o'zgarganda butun katalogni bir amalda: foiz yoki summa, oldindan ko'rish, 100 so'mgacha yaxlitlash |
 | **Avtomatik zaxira** | Har kuni 03:00 da to'liq JSON adminning Telegramiga tushadi. API kalitlari zaxiraga kirmaydi |
+| **Zaxiradan tiklash** | Ikki rejim: **Do'kon** — katalog, sozlamalar, promokodlar (pulga tegmaydi, ishlab turgan do'konda ham xavfsiz); **Hammasi** — mijoz balanslari, buyurtma va to'lovlar ham (bazani yo'qotgandan keyin; bo'sh bo'lmagan bazada tasdiq so'raydi). Tiklashda API kalitlari joyida qoladi |
 | **Takror buyurtmadan himoya** | Bir daqiqada ayni buyurtma takrorlansa mijozdan so'raladi — tasodifiy ikki marta bosishda pul ikki marta yechilmaydi |
 | **Yakunlanmagan to'lov eslatmasi** | Muddat tugashiga bir necha daqiqa qolganda mijozga karta raqami bilan eslatma boradi |
 | **`/api/health`** | Railway va tashqi kuzatuvchilar uchun holat uchi (baza, bot, adminlar soni) |
@@ -339,7 +340,7 @@ public/
   i18n.js        UZ / RU matnlar
   app.js         Mijoz mantiqi: ko'rinishlar, buyurtma, to'ldirish, referal, sharh
   admin.js       Admin panel (12 bo'lim, uch guruhga bo'lingan)
-test/run.js      102 ta integratsion test — npm test
+test/run.js      108 ta integratsion test — npm test
 ```
 
 **Yangilashda:** ilgari mahsulot ikonkasi emoji edi. Server ishga tushganda saqlangan

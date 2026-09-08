@@ -1423,6 +1423,18 @@
       <button class="btn btn--acc btn-w" id="bkNow" style="margin-top:9px">${ICO("download", 15)}Zaxirani hozir yuborish</button>
       <div class="tiny mut" id="bkOut" style="margin-top:7px"></div>
 
+      <div class="sect"><h3>Zaxiradan tiklash</h3></div>
+      <div class="hint">${ICO("alert", 13)}<span>Telegramdagi zaxira faylini oching, matnini nusxalab shu yerga qo'ying.
+        <b>Do'kon</b> rejimi faqat katalog, sozlamalar va promokodlarni tiklaydi — pulga tegmaydi.
+        <b>Hammasi</b> rejimi mijoz balanslari, buyurtma va to'lovlarni ham tiklaydi (bazani yo'qotgandan keyin).</span></div>
+      <textarea class="textarea code" id="rsBox" placeholder='{"version":1, ...}' style="min-height:100px;margin-top:9px"></textarea>
+      <div class="pills pills--v" id="rsMode" style="margin-top:9px">
+        <button class="pill on" data-rm="shop">Do'kon</button>
+        <button class="pill" data-rm="all">Hammasi</button>
+      </div>
+      <button class="btn btn--danger btn-w" id="rsBtn" style="margin-top:9px">${ICO("refresh", 14)}Zaxiradan tiklash</button>
+      <div class="tiny mut" id="rsOut" style="margin-top:7px"></div>
+
       <div class="sect"><h3>Katalogni eksport qilish</h3></div>
       <div class="hint">${ICO("info", 13)}<span>Shu JSON'ni nusxalab saqlang — kerak bo'lganda qaytadan import qilasiz.</span></div>
       <textarea class="textarea code" id="expBox" readonly style="min-height:110px;margin-top:9px">${esc(json)}</textarea>
@@ -1446,6 +1458,47 @@
         out.innerHTML = `<span class="errline">${esc(errText(e))}</span>`;
       }
       b.disabled = false;
+    };
+
+    let rsMode = "shop";
+    el("rsMode").onclick = e => {
+      const b = e.target.closest("[data-rm]");
+      if (!b) return;
+      rsMode = b.getAttribute("data-rm");
+      [...el("rsMode").children].forEach(c => c.classList.toggle("on", c === b));
+    };
+    el("rsBtn").onclick = async () => {
+      let data;
+      try { data = JSON.parse(el("rsBox").value); }
+      catch (e) { return toast("JSON noto'g'ri", "err"); }
+      if (!(await ask("Zaxiradan tiklansinmi?", {
+        text: rsMode === "all"
+          ? "Mijoz balanslari, buyurtma va to'lovlar ham almashtiriladi. Bu amalni qaytarib bo'lmaydi."
+          : "Katalog, sozlamalar va promokodlar almashtiriladi. Pul va buyurtmalarga tegilmaydi.",
+        yes: "Tiklash"
+      }))) return;
+      const out = el("rsOut");
+      out.textContent = "Tiklanmoqda...";
+      try {
+        const r = await api("/api/admin/restore", { body: { data, mode: rsMode } });
+        out.innerHTML = `<span class="okline">Tiklandi — mahsulot: ${r.catalog}, promokod: ${r.promos},
+          mijoz: ${r.users}, buyurtma: ${r.orders}, to'lov: ${r.payments}</span>`;
+        toast("Tiklandi", "ok");
+        api("/api/catalog").then(c => { window.MP.catalog = c; window.mpRender(); });
+      } catch (e) {
+        if (e.code === "not_empty") {
+          if (!(await ask("Bazada allaqachon buyurtma bor", {
+            text: "Ustidan yozilsinmi? Joriy ma'lumot almashtiriladi.", yes: "Ustidan yozish"
+          }))) { out.textContent = ""; return; }
+          try {
+            const r2 = await api("/api/admin/restore", { body: { data, mode: rsMode, force: true } });
+            out.innerHTML = `<span class="okline">Tiklandi — buyurtma: ${r2.orders}, to'lov: ${r2.payments}</span>`;
+            toast("Tiklandi", "ok");
+          } catch (e2) { out.innerHTML = `<span class="errline">${esc(errText(e2))}</span>`; }
+          return;
+        }
+        out.innerHTML = `<span class="errline">${esc(errText(e))}</span>`;
+      }
     };
 
     el("expCopy").onclick = () => window.mpCopy(json);

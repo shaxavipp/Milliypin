@@ -916,6 +916,55 @@ async function main() {
     assert.notStrictEqual(r.status, 429, "boshqa mijoz ham to'silib qoldi");
   });
 
+  group("Zaxiradan tiklash");
+  await it("do'kon rejimi katalog va promokodni tiklaydi, pulga tegmaydi", async () => {
+    const snap = JSON.parse(JSON.stringify(app.backupPayload()));
+    const balBefore = (await call("/api/me", { as: USER })).data.balance;
+
+    // Katalogni buzamiz
+    const list = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    list[0].title = { uz: "BUZILGAN", ru: "BUZILGAN" };
+    await call("/api/admin/catalog", { as: ADMIN, body: { items: list } });
+
+    const r = await call("/api/admin/restore", { as: ADMIN, body: { data: snap, mode: "shop" } });
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.catalog > 0);
+    assert.strictEqual(r.data.orders, 0, "do'kon rejimida buyurtma tiklandi");
+    assert.strictEqual(r.data.users, 0, "do'kon rejimida mijoz tiklandi");
+
+    const back = (await call("/api/admin/catalog", { as: ADMIN })).data;
+    assert.notStrictEqual(back[0].title.uz, "BUZILGAN", "katalog tiklanmadi");
+    const balAfter = (await call("/api/me", { as: USER })).data.balance;
+    assert.strictEqual(balAfter, balBefore, "balans o'zgarib ketdi");
+  });
+  await it("to'liq rejim bo'sh bo'lmagan bazada force so'raydi", async () => {
+    const snap = JSON.parse(JSON.stringify(app.backupPayload()));
+    const r = await call("/api/admin/restore", { as: ADMIN, body: { data: snap, mode: "all" } });
+    assert.strictEqual(r.status, 409);
+    assert.strictEqual(r.data.error, "not_empty");
+  });
+  await it("force bilan to'liq tiklash ishlaydi", async () => {
+    const snap = JSON.parse(JSON.stringify(app.backupPayload()));
+    const r = await call("/api/admin/restore", { as: ADMIN, body: { data: snap, mode: "all", force: true } });
+    assert.strictEqual(r.status, 200);
+    assert.ok(r.data.users > 0);
+    assert.ok(r.data.orders > 0);
+  });
+  await it("noto'g'ri zaxira rad etiladi", async () => {
+    assert.strictEqual((await call("/api/admin/restore", { as: ADMIN, body: {} })).status, 400);
+    assert.strictEqual((await call("/api/admin/restore", { as: ADMIN, body: { data: { version: 9 } } })).status, 400);
+  });
+  await it("tiklash faqat adminga ochiq", async () => {
+    assert.strictEqual((await call("/api/admin/restore", { as: USER, body: { data: { version: 1 } } })).status, 403);
+  });
+  await it("tiklashda API kalitlari saqlanadi", async () => {
+    // Provayder kaliti zaxirada yo'q — tiklashdan keyin ham ishlashi kerak
+    const snap = JSON.parse(JSON.stringify(app.backupPayload()));
+    await call("/api/admin/restore", { as: ADMIN, body: { data: snap, mode: "shop" } });
+    const bal = await call("/api/admin/provider-balance?id=" + provId, { as: ADMIN });
+    assert.strictEqual(bal.status, 200, "tiklashdan keyin provayder kaliti yo'qoldi");
+  });
+
   group("Sevimlilar");
   await it("mahsulot sevimlilarga qo'shiladi va olinadi", async () => {
     const on = await call("/api/favorite", { as: USER, body: { itemId: stars.id } });

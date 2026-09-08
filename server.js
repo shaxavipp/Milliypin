@@ -1847,6 +1847,74 @@ route("POST", "/api/admin/backup", (req, res) => {
   });
 });
 
+/* Zaxiradan tiklash. Ikki rejim:
+     "shop" (standart) — katalog, sozlamalar va promokodlar. Xavfsiz: pul va
+                         buyurtmalarga tegmaydi, ya'ni ishlab turgan do'konda
+                         ham bajarish mumkin.
+     "all"             — qo'shimcha ravishda mijozlar (balans, sarflangan),
+                         buyurtmalar va to'lovlar. Bu volume yo'qolgandan
+                         keyingi holat uchun; bazada allaqachon buyurtma bo'lsa
+                         force:true talab qiladi, aks holda rad etiladi. */
+route("POST", "/api/admin/restore", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  readBody(req, res, b => {
+    const data = b.data;
+    if (!data || typeof data !== "object") return send(res, 400, { error: "data_required" });
+    if (Number(data.version) !== 1) return send(res, 400, { error: "bad_version" });
+
+    const mode = str(b.mode, 10) === "all" ? "all" : "shop";
+    const out = { mode, catalog: 0, promos: 0, users: 0, orders: 0, payments: 0, settings: 0 };
+
+    // ── Katalog
+    if (Array.isArray(data.catalog) && data.catalog.length) {
+      store.productsReplaceAll(db, data.catalog);
+      out.catalog = data.catalog.length;
+    }
+
+    // ── Sozlamalar (kalitlar zaxirada yo'q — mavjudlari saqlanadi)
+    const st = data.settings || {};
+    ["shop", "cards", "channels", "referral", "loyalty", "links", "socials", "faq", "about"]
+      .forEach(k => { if (st[k] !== undefined) { cfgPut(k, st[k]); out.settings++; } });
+    if (Array.isArray(st.providers)) {
+      const cur = cfg("providers") || [];
+      cfgPut("providers", st.providers.map(pr => {
+        const old = cur.find(x => x.id === pr.id);
+        return Object.assign({}, pr, {
+          key: (old && old.key) || "", authHeader: (old && old.authHeader) || ""
+        });
+      }));
+      out.settings++;
+    }
+
+    // ── Promokodlar
+    if (Array.isArray(data.promos)) {
+      data.promos.forEach(pr => { if (pr && pr.code) { store.promoPut(db, pr); out.promos++; } });
+    }
+
+    if (mode === "all") {
+      const hasOrders = store.ordersByStatus(db, null, 1).length > 0;
+      if (hasOrders && !b.force) return send(res, 409, { error: "not_empty" });
+
+      (data.users || []).forEach(u2 => {
+        if (!u2 || !u2.id) return;
+        const cur = store.userGet(db, String(u2.id)) || { id: String(u2.id) };
+        store.userPut(db, Object.assign(cur, {
+          id: String(u2.id), username: u2.username || "", firstName: u2.firstName || "",
+          balance: num(u2.balance), spent: num(u2.spent),
+          createdAt: num(u2.createdAt) || now(), blocked: !!u2.blocked,
+          refBy: u2.refBy || "", refEarned: num(u2.refEarned)
+        }));
+        out.users++;
+      });
+      (data.orders || []).forEach(o2 => { if (o2 && o2.id) { store.orderPut(db, o2); out.orders++; } });
+      (data.payments || []).forEach(p2 => { if (p2 && p2.id) { store.paymentPut(db, p2); out.payments++; } });
+    }
+
+    cacheClear();
+    send(res, 200, Object.assign({ ok: true }, out));
+  });
+});
+
 // Har kuni bir marta avtomatik zaxira — do'kon egasi unutib qo'ysa ham
 // ma'lumot Telegramda qoladi. Vaqt: har kuni 03:00 (server vaqti).
 let lastBackupDay = "";
